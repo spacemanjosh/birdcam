@@ -111,4 +111,4 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", required=True, type=str, help="Path to the output directory.")
     args = parser.parse_args()
 
-    annotate_video(args.input, args.output)
+    annotate_video(Path(args.input), Path(args.output))
