@@ -160,12 +160,20 @@ def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate
         min_gap (float): Minimum gap between clips to consider them separate.
     """
 
-    frames, timestamps = extract_frames(video_path, output_rate=output_rate)
-    bird_timestamps = detect_birds(frames, timestamps)
-
-    # Save timestamps to CSV
     csv_file = output_path / f"{video_path.stem}_timestamps.csv"
-    pd.Series(bird_timestamps, name="Bird Detected At (s)").to_csv(str(csv_file), index=False)
+    if csv_file.exists():
+        print(f"Timestamps file '{csv_file}' already exists. Skipping bird detection. Moving on to clip export.")
+
+        # Load existing timestamps from CSV, sorted
+        bird_timestamps = pd.read_csv(str(csv_file))["Bird Detected At (s)"].tolist()
+        bird_timestamps.sort()
+    else:
+        print(f"Looking for birds in {video_path}...")
+        frames, timestamps = extract_frames(video_path, output_rate=output_rate)
+        bird_timestamps = detect_birds(frames, timestamps)
+
+        # Save timestamps to CSV
+        pd.Series(bird_timestamps, name="Bird Detected At (s)").to_csv(str(csv_file), index=False)
 
     # Export clips
     group_and_save_clips(video_path, output_path, bird_timestamps, pre_buffer, post_buffer, min_gap)
