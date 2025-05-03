@@ -1,0 +1,17 @@
+name: birdcam
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - ffmpeg
+  - ffmpeg-python
+  - numpy
+  - pandas
+  - pytorch
+  - opencv
+  - google-api-python-client 
+  - google-auth
+  - google-auth-oauthlib
+  - google-auth-httplib2

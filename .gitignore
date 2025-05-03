@@ -1,0 +1,10 @@
+*.json
+*.log
+*.csv
+*.mp4
+*.pt
+*.pyc
+*.service
+clips
+*.txt
+upload_to_youtube.py
