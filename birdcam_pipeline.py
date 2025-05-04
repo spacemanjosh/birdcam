@@ -16,6 +16,7 @@ from pathlib import Path
 from datetime import datetime
 from find_birds import find_birds_and_save_clips, combine_clips
 from annotate_video import annotate_video
+from birdcam_pipeline_single import process_single_video
 import ffmpeg
 
 def process_videos_from_day(date, video_path, output_path):
@@ -36,6 +37,7 @@ def process_videos_from_day(date, video_path, output_path):
     clips_path.mkdir(parents=True, exist_ok=True)
     combined_file_path = date_path / f"{date}_combined_bird_clips.mp4"
 
+    # Check if the combined file already exists.  If it is and it's valid, skip processing.
     if combined_file_path.exists():
         # Check the integrity of the combined mp4 file
         try:
@@ -57,28 +59,12 @@ def process_videos_from_day(date, video_path, output_path):
     if not video_files:
         print(f"No video files found in '{video_path}'.")
         return
-
-    # Process each video file
-    for video_file in video_files:
-        print(f"Annotating {video_file}...")
-        annotate_video(video_file, annotate_video_path)
-
-    annotated_videos = sorted(annotate_video_path.glob(f"*{date}_*.mp4"))
-    if not annotated_videos:
-        print(f"No annotated video files found in '{annotate_video_path}'.")
-        return
     
-    # Check to see if any clips for this date already exist
-    existing_clips = sorted(clips_path.glob(f"*{date}_*.mp4"))
-    if existing_clips:
-        print(f"Clips already exist for date {date}. Moving on to combine clips.")
-    else:
-        print(f"Searching for birds for date {date}...")
-        # Process each annotated video file
-        for annotated_video in annotated_videos:
-            print(f"Finding birds in {annotated_video}...")
-            find_birds_and_save_clips(annotated_video, clips_path)
+    # Loop over all the video files and process them
+    for video_file in video_files:
+        process_single_video(video_file, output_path)
 
+    # Combine all clips into a single video
     combine_clips(clips_path, combined_file_path)
 
 if __name__ == "__main__":
