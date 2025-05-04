@@ -19,22 +19,17 @@ from pathlib import Path
 
 def extract_frames(video_path, output_rate=1):
     """
-    Extract frames from a video at a specified rate.
+    Extract frames from a video at a specified rate as a generator.
     Args:
         video_path (str): Path to the input video file.
         output_rate (int): Rate at which to extract frames (1 means every frame, 2 means every second frame, etc.).
-    Returns:
-        frames (list): List of extracted frames.
-        timestamps (list): List of timestamps corresponding to the extracted frames.
-    1 second = 1000 milliseconds
-    1 frame = 1 / fps seconds
+    Yields:
+        frame (numpy.ndarray): Extracted frame.
+        timestamp (float): Timestamp corresponding to the extracted frame.
     """
-
     cap = cv2.VideoCapture(str(video_path))
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_interval = int(fps / output_rate)
-    frames = []
-    timestamps = []
 
     frame_count = 0
     while True:
@@ -43,35 +38,33 @@ def extract_frames(video_path, output_rate=1):
             break
         if frame_count % frame_interval == 0:
             timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # seconds
-            frames.append(frame)
-            timestamps.append(timestamp)
+            yield frame, timestamp
         frame_count += 1
     cap.release()
-    return frames, timestamps
 
-def detect_birds(frames, timestamps, model_name='yolov5s', confidence_threshold=0.3):
+def detect_birds(video_path, output_rate=1, model_name='yolov5s', confidence_threshold=0.3):
     """
     Detect birds in frames using a pre-trained YOLOv5 model.
     Args:
-        frames (list): List of frames to process.
-        timestamps (list): List of timestamps corresponding to the frames.
+        video_path (Path): Path to the input video file.
+        output_rate (int): Rate at which to extract frames.
         model_name (str): Name of the YOLOv5 model to use (e.g., 'yolov5s', 'yolov5m', etc.).
         confidence_threshold (float): Minimum confidence score for detections.
     Returns:
         bird_times (list): List of timestamps where birds were detected.
     """
-
     # Load the YOLOv5 model
     model = torch.hub.load('ultralytics/yolov5', model_name, pretrained=True)
     bird_times = []
 
-    for frame, t in zip(frames, timestamps):
+    # Process frames one by one
+    for frame, timestamp in extract_frames(video_path, output_rate=output_rate):
         results = model(frame)
         detections = results.pandas().xyxy[0]
         birds = detections[(detections['name'] == 'bird') & (detections['confidence'] > confidence_threshold)]
         if not birds.empty:
-            print(f"Bird detected at {t:.2f} seconds")
-            bird_times.append(t)
+            print(f"Bird detected at {timestamp:.2f} seconds")
+            bird_times.append(timestamp)
 
     return bird_times
 
@@ -169,8 +162,7 @@ def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate
         bird_timestamps.sort()
     else:
         print(f"Looking for birds in {video_path}...")
-        frames, timestamps = extract_frames(video_path, output_rate=output_rate)
-        bird_timestamps = detect_birds(frames, timestamps)
+        bird_timestamps = detect_birds(video_path, output_rate=output_rate)
 
         # Save timestamps to CSV
         pd.Series(bird_timestamps, name="Bird Detected At (s)").to_csv(str(csv_file), index=False)
