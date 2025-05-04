@@ -24,8 +24,6 @@ def annotate_video(input_file, output_dir=Path("./annotated_videos")):
         output_dir (Path): Directory where the annotated video will be saved.
     """
     
-    # TODO: get rid of os.path stuff and use pathlib
-
     # Check if the input file exists
     if not input_file.exists():
         print(f"Error: File '{input_file}' does not exist.")
@@ -97,7 +95,11 @@ def annotate_video(input_file, output_dir=Path("./annotated_videos")):
         (
             ffmpeg
             .input(input_file)  # Normalize frame rate here
-            .output(str(output_file), vf=filter_complex, vcodec='libx264', crf=18, preset='medium')
+            .output(str(output_file), 
+                    vf=filter_complex, 
+                    vcodec='libx264', 
+                    crf=18, 
+                    preset='ultrafast')
             .run()
         )
         print(f"Wrote '{output_file}' with date '{date_fmt}' and timecode starting at '{timepart[:2]}:{timepart[2:4]}:{timepart[4:]}'")
