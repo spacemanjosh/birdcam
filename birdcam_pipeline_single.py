@@ -35,9 +35,10 @@ def process_single_video(video_file, output_path):
 
     # Annotate the video
     annotate_video(video_file, annotate_video_path)
+    annotate_video_file = annotate_video_path / f"{video_file.stem}_dated_tc.mp4"
 
     # Find birds and save clips
-    find_birds_and_save_clips(video_file, clips_path)
+    find_birds_and_save_clips(annotate_video_file, clips_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process birdcam videos to detect birds and save clips.")
