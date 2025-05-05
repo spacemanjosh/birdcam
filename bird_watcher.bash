@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ~/.bashrc
+
 # Directory to watch (where Pi Zero 2W syncs files)
 WATCH_DIR="/bird_drive/recordings"
 
