@@ -103,9 +103,20 @@ def group_and_save_clips(video_path, output_path, timestamps, pre_buffer=10.0, p
     # Save subclips
     for i, (s, e) in enumerate(merged_intervals):
         subclip = clip.subclip(s, e)
-        out_path = output_path / f"{video_path.stem}_clip_{i+1:03d}.mp4"
-        subclip.write_videofile(str(out_path), codec="libx264", audio_codec="aac", audio=True, logger=None)
-        print(f"Saved merged clip: {out_path}")
+
+        # Format the start time as HH-MM-SS for the file name
+        # h, m, s = int(s // 3600), int((s % 3600) // 60), int(s % 60)
+        start_time_str = f"{int(s):04d}"
+
+        # Include the start time in the output file name
+        sub_clip_file = output_path / f"{video_path.stem}_clip_{start_time_str}.mp4"
+        if sub_clip_file.exists():
+            print(f"Clip {sub_clip_file} already exists. Skipping...")
+            continue
+
+        # Save the subclip
+        subclip.write_videofile(str(sub_clip_file), codec="libx264", audio_codec="aac", audio=True, logger=None)
+        print(f"Saved merged clip: {sub_clip_file}")
 
     clip.close()
 
@@ -153,14 +164,23 @@ def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate
         min_gap (float): Minimum gap between clips to consider them separate.
     """
 
+    # If the CSV file already exists, load it and skip bird detection.
+    # But if the CSV file is empty, reprocess bird detection.
     csv_file = output_path / f"{video_path.stem}_timestamps.csv"
+    reprocess = False
     if csv_file.exists():
-        print(f"Timestamps file '{csv_file}' already exists. Skipping bird detection. Moving on to clip export.")
-
         # Load existing timestamps from CSV, sorted
         bird_timestamps = pd.read_csv(str(csv_file))["Bird Detected At (s)"].tolist()
         bird_timestamps.sort()
+        if len(bird_timestamps) == 0:
+            print(f"No bird timestamps found in '{csv_file}'. Reprocessing...")
+            csv_file.unlink()  # Delete the empty CSV file
+            reprocess = True
+        else:
+            print(f"Timestamps file '{csv_file}' already exists. Skipping bird detection. Moving on to clip export.")
     else:
+        reprocess = True
+    if reprocess:
         print(f"Looking for birds in {video_path}...")
         bird_timestamps = detect_birds(video_path, output_rate=output_rate)
 

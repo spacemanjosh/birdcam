@@ -18,6 +18,7 @@ from find_birds import find_birds_and_save_clips, combine_clips
 from annotate_video import annotate_video
 from birdcam_pipeline_single import process_single_video
 import ffmpeg
+import time
 
 def process_videos_from_day(date, video_path, output_path):
     """
@@ -31,9 +32,7 @@ def process_videos_from_day(date, video_path, output_path):
     # Set up paths
     date_path = output_path / date
     date_path.mkdir(parents=True, exist_ok=True)
-    annotate_video_path = date_path / "annotated_videos"
-    annotate_video_path.mkdir(parents=True, exist_ok=True)
-    clips_path = date_path / "clips"
+    clips_path = date_path / "annotated_clips"
     clips_path.mkdir(parents=True, exist_ok=True)
     combined_file_path = date_path / f"{date}_combined_bird_clips.mp4"
 
@@ -97,3 +96,13 @@ if __name__ == "__main__":
         video_path=input_path,
         output_path=output_path
     )
+
+
+    # start_time = time.time()
+    # process_videos_from_day(
+    #     date="20250502",
+    #     video_path=Path("/Volumes/Cosmos/birdcam/videos/v2"),
+    #     output_path=Path("/Volumes/Cosmos/birdcam/videos/v2/processed_videos_test")
+    # )
+    # end_time = time.time()
+    # print(f"Processing took {end_time - start_time:.2f} seconds.")

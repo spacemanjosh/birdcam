@@ -25,20 +25,32 @@ def process_single_video(video_file, output_path):
         output_path (Path): Path to the directory where the output will be saved.
     """
 
+    # Check the integrity of the input video file
+    try:
+        probe = ffmpeg.probe(str(video_file))
+        if probe['format']['duration'] == '0':
+            print(f"Input video file '{video_file}' is empty. Skipping...")
+            return
+    except ffmpeg.Error as e:
+        print(f"Error probing input video file: {e}")
+        return
+
     # Set up paths
     date = video_file.stem.split('_')[1]  # Extract date from the filename
+    time = video_file.stem.split('_')[2]  # Extract time from the filename
     date_path = output_path / date
-    annotate_video_path = date_path / "annotated_videos"
-    annotate_video_path.mkdir(parents=True, exist_ok=True)
     clips_path = date_path / "clips"
+    annotated_clips_path = date_path / "annotated_clips"
     clips_path.mkdir(parents=True, exist_ok=True)
+    annotated_clips_path.mkdir(parents=True, exist_ok=True)
 
-    # Annotate the video
-    annotate_video(video_file, annotate_video_path)
-    annotate_video_file = annotate_video_path / f"{video_file.stem}_dated_tc.mp4"
+    # Step 1: Generate clips
+    find_birds_and_save_clips(video_file, clips_path)
 
-    # Find birds and save clips
-    find_birds_and_save_clips(annotate_video_file, clips_path)
+    # Step 2: Annotate each clip
+    for clip_file in clips_path.glob(f"*{date}_{time}*.mp4"):
+        # Annotate the clip
+        annotate_video(clip_file, annotated_clips_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process birdcam videos to detect birds and save clips.")
@@ -57,4 +69,3 @@ if __name__ == "__main__":
         output_path.mkdir(parents=True, exist_ok=True)
     
     process_single_video(input_file, output_path)
-    

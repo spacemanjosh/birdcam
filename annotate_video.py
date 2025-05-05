@@ -16,46 +16,23 @@ import os
 from pathlib import Path
 import sys
 
-def annotate_video(input_file, output_dir=Path("./annotated_videos")):
+def annotate_video(input_file, output_dir=Path("./annotated_videos"), start_time_seconds=0):
     """
-    Annotate a video with date and time overlays.
+    Annotate a video clip with date and time overlays.
     Args:
         input_file (Path): Path to the input video file.
         output_dir (Path): Directory where the annotated video will be saved.
+        start_time_seconds (int): Starting time of the clip in seconds.
     """
-    
-    # Check if the input file exists
-    if not input_file.exists():
-        print(f"Error: File '{input_file}' does not exist.")
-        return
+    # Ensure output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_file = output_dir / f"{input_file.stem}_annotated.mp4"
 
-    # Check if the input file is a video file
-    if not input_file.name.lower().endswith(('.mp4', '.mov', '.avi', '.mkv')):
-        print(f"Error: File '{input_file}' is not a valid video file.")
-        return
-
-    # Paths and file names
-    output_dir = Path(output_dir)
-    file_name = input_file.stem
-    file_extension = input_file.suffix[1:]
-
-    # Parse out date (YYYYMMDD) and time (HHMMSS)
-    prefix, datepart, timepart = file_name.split('_')
-
-    # Build SMPTE timecode
-    tc = f"{timepart[:2]}\\:{timepart[2:4]}\\:{timepart[4:]}\\:00"
-
-    # Format the date
-    date_fmt = f"{datepart[:4]}-{datepart[4:6]}-{datepart[6:]}"
-
-    # Output file
-    output_dir.mkdir(parents=True, exist_ok=True)  # Create the directory if it doesn't exist
-    output_file = output_dir / f"{file_name}_dated_tc.{file_extension}"
     # Check if the output file already exists
     if output_file.exists():
-        print(f"Warning: Output file '{output_file}' already exists. Returning without overwriting.")
+        print(f"Output file '{output_file}' already exists. Skipping...")
         return
-
+    
     # Get the frame rate of the input video
     try:
         probe = ffmpeg.probe(input_file)
@@ -66,7 +43,7 @@ def annotate_video(input_file, output_dir=Path("./annotated_videos")):
     video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
     if not video_stream:
         print("Error: No video stream found in the input file.")
-        sys.exit(1)
+        return
     frame_rate = eval(video_stream['r_frame_rate'])  # Convert "30/1" to 30.0
 
     # Build the FFmpeg filter
@@ -74,9 +51,22 @@ def annotate_video(input_file, output_dir=Path("./annotated_videos")):
     font_size = 32
     font_color = "white"
 
-    # Build SMPTE timecode
-    start_time_seconds = int(timepart[:2]) * 3600 + int(timepart[2:4]) * 60 + int(timepart[4:])  # Convert HHMMSS to seconds
+    # Paths and file names
+    output_dir = Path(output_dir)
+    file_name = input_file.stem
+    file_extension = input_file.suffix[1:]
 
+    # Parse out date (YYYYMMDD) and time (HHMMSS)
+    datepart = file_name.split('_')[1]  # YYYYMMDD
+    timepart = file_name.split('_')[2]  # HHMMSS
+    clip_start_time = file_name.split('_')[4]  # seconds
+
+    # Add the start time to the time part
+    start_time_seconds = int(clip_start_time) + int(timepart[:2]) * 3600 + int(timepart[2:4]) * 60 + int(timepart[4:])
+
+    date_fmt = f"{datepart[:4]}-{datepart[4:6]}-{datepart[6:]}"
+
+    # Build dynamic timecode based on the clip's starting time
     dynamic_timecode = (
         f"text='%{{eif\\:mod((t+{start_time_seconds})/3600\\,24)\\:d\\:2}}\\:%{{eif\\:mod((t+{start_time_seconds})/60\\,60)\\:d\\:2}}\\:%{{eif\\:mod((t+{start_time_seconds})\\,60)\\:d\\:2}}'"
     )
@@ -90,11 +80,11 @@ def annotate_video(input_file, output_dir=Path("./annotated_videos")):
         f"text='LA County USA':fontcolor={font_color}:fontsize={font_size}:x=100:y=h-100:box=0"
     )
 
-    # Run FFmpeg with fps filter in the input
+    # Run FFmpeg with the filter
     try:
         (
             ffmpeg
-            .input(input_file)  # Normalize frame rate here
+            .input(input_file)
             .output(str(output_file), 
                     vf=filter_complex, 
                     vcodec='libx264', 
@@ -102,15 +92,16 @@ def annotate_video(input_file, output_dir=Path("./annotated_videos")):
                     preset='ultrafast')
             .run()
         )
-        print(f"Wrote '{output_file}' with date '{date_fmt}' and timecode starting at '{timepart[:2]}:{timepart[2:4]}:{timepart[4:]}'")
-    except:
+        print(f"Wrote '{output_file}' with starting timecode at {start_time_seconds} seconds.")
+    except ffmpeg.Error as e:
         print(f"Error: Failed to write {output_file}")
-        output_file.unlink(missing_ok=True)  # Remove the output file if it exists
+        output_file.unlink(missing_ok=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Annotate a video with date and time overlays.")
     parser.add_argument("-i", "--input", required=True, type=str, help="Path to the input video file.")
     parser.add_argument("-o", "--output", required=True, type=str, help="Path to the output directory.")
+    parser.add_argument("-s", "--start-time", type=int, default=0, help="Starting time of the clip in seconds.")
     args = parser.parse_args()
 
-    annotate_video(Path(args.input), Path(args.output))
+    annotate_video(Path(args.input), Path(args.output), args.start_time)
