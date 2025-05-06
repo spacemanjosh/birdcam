@@ -29,17 +29,27 @@ def extract_frames(video_path, output_rate=1):
     """
     cap = cv2.VideoCapture(str(video_path))
     fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     frame_interval = int(fps / output_rate)
 
-    frame_count = 0
-    while True:
+    for frame_number in range(0, total_frames, frame_interval):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # Jump ahead to the next frame_interval
         ret, frame = cap.read()
         if not ret:
             break
-        if frame_count % frame_interval == 0:
-            timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # seconds
-            yield frame, timestamp
-        frame_count += 1
+        timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # Timestamp in seconds
+        yield frame, timestamp
+
+    # frame_count = 0
+    # while True:
+    #     ret, frame = cap.read()
+    #     if not ret:
+    #         break
+    #     if frame_count % frame_interval == 0:
+    #         timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # seconds
+    #         yield frame, timestamp
+    #     frame_count += 1
+
     cap.release()
 
 def detect_birds(video_path, output_rate=1, model_name='yolov5s', confidence_threshold=0.3):
