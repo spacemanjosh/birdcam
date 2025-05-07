@@ -182,12 +182,13 @@ def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate
         # Load existing timestamps from CSV, sorted
         bird_timestamps = pd.read_csv(str(csv_file))["Bird Detected At (s)"].tolist()
         bird_timestamps.sort()
-        if len(bird_timestamps) == 0:
-            print(f"No bird timestamps found in '{csv_file}'. Reprocessing...")
-            csv_file.unlink()  # Delete the empty CSV file
-            reprocess = True
-        else:
-            print(f"Timestamps file '{csv_file}' already exists. Skipping bird detection. Moving on to clip export.")
+        # if len(bird_timestamps) == 0:
+        #     print(f"No bird timestamps found in '{csv_file}'. Reprocessing...")
+        #     csv_file.unlink()  # Delete the empty CSV file
+        #     reprocess = True
+        # else:
+            
+        print(f"Timestamps file '{csv_file}' already exists. Skipping bird detection. Moving on to clip export.")
     else:
         reprocess = True
     if reprocess:
