@@ -99,6 +99,7 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='y
 
             if debug:
                 for index, row in birds.iterrows():
+                    print(f"DEBUG: Bird detection parameters: {row}")
                     box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
                     draw_bounding_box(frame, box, label="bird", confidence=row['confidence'])
                 cv2.imwrite(str(output_path / f"frame_{timestamp:.2f}.jpg"), frame)
