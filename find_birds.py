@@ -17,6 +17,8 @@ import pandas as pd
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 from pathlib import Path
 
+debug = True
+
 def extract_frames(video_path, output_rate=1):
     """
     Extract frames from a video at a specified rate as a generator.
@@ -40,19 +42,37 @@ def extract_frames(video_path, output_rate=1):
         timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # Timestamp in seconds
         yield frame, timestamp
 
-    # frame_count = 0
-    # while True:
-    #     ret, frame = cap.read()
-    #     if not ret:
-    #         break
-    #     if frame_count % frame_interval == 0:
-    #         timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # seconds
-    #         yield frame, timestamp
-    #     frame_count += 1
-
     cap.release()
 
-def detect_birds(video_path, output_rate=1, model_name='yolov5s', confidence_threshold=0.3):
+def draw_bounding_box(image, box, label="", confidence=None, color=(0, 255, 0), thickness=2):
+    """
+    Draw a bounding box with label and optional confidence on an image.
+
+    Args:
+        image: np.ndarray (the frame)
+        box: (x1, y1, x2, y2) in pixels
+        label: string label (e.g., "bird")
+        confidence: float between 0 and 1
+        color: BGR tuple (Note: It is BGR, not RGB in cv2)
+        thickness: line thickness
+    """
+    x1, y1, x2, y2 = map(int, box)
+    cv2.rectangle(image, (x1, y1), (x2, y2), color, thickness)
+
+    # Compose label text
+    text = f"{label}"
+    if confidence is not None:
+        text += f" {confidence*100:.1f}%"
+
+    # Calculate text size & draw background rectangle
+    (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+    cv2.rectangle(image, (x1, y1 - th - 4), (x1 + tw, y1), color, -1)
+
+    # Draw text over rectangle
+    cv2.putText(image, text, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+
+
+def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='yolov5s', confidence_threshold=0.3):
     """
     Detect birds in frames using a pre-trained YOLOv5 model.
     Args:
@@ -65,33 +85,44 @@ def detect_birds(video_path, output_rate=1, model_name='yolov5s', confidence_thr
     """
     # Load the YOLOv5 model
     model = torch.hub.load('ultralytics/yolov5', model_name, pretrained=True)
-    bird_times = []
+    bird_times = pd.DataFrame(columns=["Bird Detected At (s)", "Confidence"])
 
     # Process frames one by one
     for frame, timestamp in extract_frames(video_path, output_rate=output_rate):
+
+        # Checking birds
         results = model(frame)
         detections = results.pandas().xyxy[0]
         birds = detections[(detections['name'] == 'bird') & (detections['confidence'] > confidence_threshold)]
         if not birds.empty:
             print(f"Bird detected at {timestamp:.2f} seconds")
-            bird_times.append(timestamp)
+
+            if debug:
+                for index, row in birds.iterrows():
+                    box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
+                    draw_bounding_box(frame, box, label="bird", confidence=row['confidence'])
+                cv2.imwrite(str(output_path / f"frame_{timestamp:.2f}.jpg"), frame)
+
+            confidence = ",".join([str(c) for c in birds['confidence']])
+            new_row = pd.DataFrame([{"Bird Detected At (s)": timestamp, "Confidence": confidence}])
+            bird_times = pd.concat([bird_times, new_row], ignore_index=True)
 
     return bird_times
 
-def group_and_save_clips(video_path, output_path, timestamps, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
+def group_and_save_clips(video_path, output_path, df_timestamps, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
     """
     Group timestamps and save video clips around detected birds.
     Args:
         video_path (Path): Path to the input video file.
         output_path (Path): Directory to save the output clips.
-        timestamps (list): List of timestamps where birds were detected.
+        df_timestamps (pandas DataFrame): DataFrame of timestamps where birds were detected.
         pre_buffer (float): Time before the detected timestamp to include in the clip.
         post_buffer (float): Time after the detected timestamp to include in the clip.
         min_gap (float): Minimum gap between clips to consider them separate.
     """
 
     clip = VideoFileClip(str(video_path))
-    timestamps = sorted(timestamps)
+    timestamps = sorted(df_timestamps["Bird Detected At (s)"].tolist())
 
     merged_intervals = []
     if not timestamps:
@@ -180,23 +211,18 @@ def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate
     reprocess = False
     if csv_file.exists():
         # Load existing timestamps from CSV, sorted
-        bird_timestamps = pd.read_csv(str(csv_file))["Bird Detected At (s)"].tolist()
-        bird_timestamps.sort()
-        # if len(bird_timestamps) == 0:
-        #     print(f"No bird timestamps found in '{csv_file}'. Reprocessing...")
-        #     csv_file.unlink()  # Delete the empty CSV file
-        #     reprocess = True
-        # else:
-            
+        bird_timestamps = pd.read_csv(str(csv_file))
         print(f"Timestamps file '{csv_file}' already exists. Skipping bird detection. Moving on to clip export.")
     else:
         reprocess = True
     if reprocess:
         print(f"Looking for birds in {video_path}...")
-        bird_timestamps = detect_birds(video_path, output_rate=output_rate)
+        bird_timestamps = detect_birds(video_path, 
+                                       output_path=output_path, 
+                                       output_rate=output_rate)
 
         # Save timestamps to CSV
-        pd.Series(bird_timestamps, name="Bird Detected At (s)").to_csv(str(csv_file), index=False)
+        bird_timestamps.to_csv(str(csv_file), index=False)
 
     # Export clips
     group_and_save_clips(video_path, output_path, bird_timestamps, pre_buffer, post_buffer, min_gap)
@@ -206,12 +232,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "-i", "--input_file",
         required=True,
-        help="Path to the directory containing the videos."
+        help="Path to the the video."
     )
     parser.add_argument(
         "-o", "--output_file",
         required=True,
-        help="Path to the directory where the output will be saved."
+        help="Path to the the output file."
     )
     args = parser.parse_args()
 
