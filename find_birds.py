@@ -84,6 +84,10 @@ def detect_false_positives(box):
         bool: True if false positives are detected, False otherwise.
     """
 
+    # Map box quantities to floats, checking for NaN values
+    if any(pd.isna(x) for x in box):
+        return False
+    
     x1, y1, x2, y2 = map(float, box)
     aspect_ratio = (x2 - x1) / (y2 - y1)
     if (aspect_ratio < 0.25 or aspect_ratio > 4.0) and ((x2 - x1) < 65 or (y2 - y1) < 65):
@@ -116,19 +120,19 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='y
         if not birds.empty:
             print(f"Bird detected at {timestamp:.2f} seconds")
 
-            if debug:
-                for index, row in birds.iterrows():
-                    print(f"DEBUG: Bird detection parameters:\n {row}")
-                    box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
-                    draw_bounding_box(frame, box, label="bird", confidence=row['confidence'])
-                cv2.imwrite(str(output_path / f"frame_{timestamp:.2f}.jpg"), frame)
-
             # Check for false positives
             for index, row in birds.iterrows():
                 box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
                 if detect_false_positives(box):
                     print(f"False positive detected at {timestamp:.2f} seconds")
                     continue
+
+            if debug:
+                for index, row in birds.iterrows():
+                    print(f"DEBUG: Bird detection parameters:\n {row}")
+                    box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
+                    draw_bounding_box(frame, box, label="bird", confidence=row['confidence'])
+                cv2.imwrite(str(output_path / f"frame_{timestamp:.2f}.jpg"), frame)
 
             confidence = ",".join([str(c) for c in birds['confidence']])
             new_row = pd.DataFrame([{"Bird Detected At (s)": timestamp, "Confidence": confidence}])
