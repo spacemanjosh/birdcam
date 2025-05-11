@@ -14,6 +14,7 @@ import argparse
 import cv2
 import torch
 import pandas as pd
+import numpy as np
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 from pathlib import Path
 
@@ -85,7 +86,7 @@ def detect_false_positives(box):
     """
 
     # Map box quantities to floats, checking for NaN values
-    if any(pd.isna(x) for x in box):
+    if any(np.isnan(x) for x in box):
         return False
     
     # Check for zero width or height
