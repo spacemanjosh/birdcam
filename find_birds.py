@@ -125,23 +125,22 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='y
         if not birds.empty:
             print(f"Bird detected at {timestamp:.2f} seconds")
 
-            # Check for false positives
             for index, row in birds.iterrows():
                 box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
+                
+                # Check for false positives
                 if detect_false_positives(box):
                     print(f"False positive detected at {timestamp:.2f} seconds")
                     continue
 
-            if debug:
-                for index, row in birds.iterrows():
+                if debug:
                     print(f"DEBUG: Bird detection parameters:\n {row}")
                     box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
                     draw_bounding_box(frame, box, label="bird", confidence=row['confidence'])
-                cv2.imwrite(str(output_path / f"frame_{timestamp:.2f}.jpg"), frame)
+                    cv2.imwrite(str(output_path / f"frame_{timestamp:.2f}.jpg"), frame)
 
-            confidence = ",".join([str(c) for c in birds['confidence']])
-            new_row = pd.DataFrame([{"Bird Detected At (s)": timestamp, "Confidence": confidence}])
-            bird_times = pd.concat([bird_times, new_row], ignore_index=True)
+                new_row = pd.DataFrame([{"Bird Detected At (s)": timestamp, "Confidence": row['confidence']}])
+                bird_times = pd.concat([bird_times, new_row], ignore_index=True)
 
     return bird_times
 
