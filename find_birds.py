@@ -24,7 +24,7 @@ def extract_frames(video_path, output_rate=1):
     Extract frames from a video at a specified rate as a generator.
     Args:
         video_path (str): Path to the input video file.
-        output_rate (int): Rate at which to extract frames (1 means every frame, 2 means every second frame, etc.).
+        output_rate (int): Rate at which to extract frames, e.g., 1=once per second, 2=every 2 seconds.
     Yields:
         frame (numpy.ndarray): Extracted frame.
         timestamp (float): Timestamp corresponding to the extracted frame.
@@ -32,7 +32,7 @@ def extract_frames(video_path, output_rate=1):
     cap = cv2.VideoCapture(str(video_path))
     fps = cap.get(cv2.CAP_PROP_FPS)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    frame_interval = int(fps / output_rate)
+    frame_interval = int(fps * output_rate)
 
     for frame_number in range(0, total_frames, frame_interval):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # Jump ahead to the next frame_interval
