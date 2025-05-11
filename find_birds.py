@@ -88,6 +88,10 @@ def detect_false_positives(box):
     if any(pd.isna(x) for x in box):
         return False
     
+    # Check for zero width or height
+    if box[2] - box[0] <= 0 or box[3] - box[1] <= 0:
+        return False
+    
     x1, y1, x2, y2 = map(float, box)
     aspect_ratio = (x2 - x1) / (y2 - y1)
     if (aspect_ratio < 0.25 or aspect_ratio > 4.0) and ((x2 - x1) < 65 or (y2 - y1) < 65):
