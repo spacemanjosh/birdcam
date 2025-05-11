@@ -71,6 +71,25 @@ def draw_bounding_box(image, box, label="", confidence=None, color=(0, 255, 0), 
     # Draw text over rectangle
     cv2.putText(image, text, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
 
+def detect_false_positives(box):
+    """
+    I'm getting some strange false positives when run on the Raspberry Pi for some reason.
+    When this occurs, it's always with a bounding box of about 60x272 pixels in size,
+    and often with a high confidence score.  This will attempt to screen out these
+    specific cases.
+
+    Args:
+        box (list): xmin, ymin, xmax, ymax of the bounding box.
+    Returns:
+        bool: True if false positives are detected, False otherwise.
+    """
+
+    x1, y1, x2, y2 = map(float, box)
+    aspect_ratio = (x2 - x1) / (y2 - y1)
+    if (aspect_ratio < 0.25 or aspect_ratio > 4.0) and ((x2 - x1) < 65 or (y2 - y1) < 65):
+        return True # False positive detected
+
+    return False # No false positives detected
 
 def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='yolov5s', confidence_threshold=0.3):
     """
@@ -99,10 +118,17 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='y
 
             if debug:
                 for index, row in birds.iterrows():
-                    print(f"DEBUG: Bird detection parameters: {row}")
+                    print(f"DEBUG: Bird detection parameters:\n {row}")
                     box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
                     draw_bounding_box(frame, box, label="bird", confidence=row['confidence'])
                 cv2.imwrite(str(output_path / f"frame_{timestamp:.2f}.jpg"), frame)
+
+            # Check for false positives
+            for index, row in birds.iterrows():
+                box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
+                if detect_false_positives(box):
+                    print(f"False positive detected at {timestamp:.2f} seconds")
+                    continue
 
             confidence = ",".join([str(c) for c in birds['confidence']])
             new_row = pd.DataFrame([{"Bird Detected At (s)": timestamp, "Confidence": confidence}])
@@ -194,13 +220,15 @@ def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
     for clip in clips:
         clip.close()
 
-def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate=1, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
+def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate=1, model_name='yolov5s', confidence_threshold=0.3, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
     """
     Main function to find birds in a video and save clips.
     Args:
         video_path (Path): Path to the input video file.
         output_path (Path): Path to the output directory for clips.
         output_rate (int): Rate at which to extract frames.
+        model_name (str): Name of the YOLOv5 model to use (e.g., 'yolov5s', 'yolov5m', etc.).
+        confidence_threshold (float): Minimum confidence score for detections.
         pre_buffer (float): Time before the detected timestamp to include in the clip.
         post_buffer (float): Time after the detected timestamp to include in the clip.
         min_gap (float): Minimum gap between clips to consider them separate.
@@ -220,6 +248,8 @@ def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate
         print(f"Looking for birds in {video_path}...")
         bird_timestamps = detect_birds(video_path, 
                                        output_path=output_path, 
+                                       model_name=model_name, 
+                                       confidence_threshold=confidence_threshold,
                                        output_rate=output_rate)
 
         # Save timestamps to CSV
