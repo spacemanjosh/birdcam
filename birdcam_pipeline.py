@@ -95,6 +95,8 @@ if __name__ == "__main__":
     input_path = Path(args.input_path)
     output_path = Path(args.output_path)
 
+    print(f"Processing videos from {args.date} in {input_path} and saving to {output_path}...")
+    t1 = time.time()
     process_videos_from_day(
         date=args.date,
         video_path=input_path,
@@ -102,3 +104,5 @@ if __name__ == "__main__":
         output_rate=2,
         confidence_threshold=0.3
     )
+    t2 = time.time()
+    print(f"Processing completed in {t2 - t1:.2f} seconds.")
