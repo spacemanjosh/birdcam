@@ -11,7 +11,11 @@ max_usage=50
 backup_server="birdserver"
 backup_dir="/bird_drive/recordings"
 
+# Recording duration in seconds
+recording_duration=600 # 10 minutes
+
 # Function to check disk usage
+# Note in bash, a "0" means "True" and a "1" means "False".
 check_disk_usage() {
   local usage=$(df -h "$output_dir" | awk 'NR==2 {print $5}' | sed 's/%//')
   if [ "$usage" -ge $max_usage ]; then
@@ -24,9 +28,9 @@ check_disk_usage() {
 
 # Function to delete the oldest file
 delete_oldest_file() {
-  local oldest_file=$(ls -t "$output_dir" | tail -1)
+  local oldest_file=$(find "$output_dir" -type f -printf '%T+ %p\n' | sort | head -n 1 | awk '{print $2}')
   if [ -n "$oldest_file" ]; then
-    rm "$output_dir/$oldest_file"
+    rm "$oldest_file"
     echo "Deleted oldest file: $oldest_file"
   fi
 }
@@ -47,7 +51,7 @@ create_still_filename() {
 # it can still continue to record and we can recover the files later.
 rsync -avz $output_dir/ $backup_server:$backup_dir/
 
-# Main loop to make half-hourly recordings
+# Main loop to make recordings
 while true; do
 
   # Check for the existence of the stop_streaming file
@@ -61,7 +65,7 @@ while true; do
     continue
   fi
   output_file=$(create_filename)
-  $script_dir/birdcam_stream.bash -o "$output_file" -t 1800 -a
+  $script_dir/birdcam_stream.bash -o "$output_file" -t $recording_duration -a
 
   # rsync the file to the backup server
   rsync -avz "$output_file" $backup_server:$backup_dir/

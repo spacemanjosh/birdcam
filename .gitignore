@@ -8,4 +8,5 @@
 clips
 *.txt
 upload_to_youtube.py
+youtube_pipeline.py
 test.py

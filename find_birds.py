@@ -35,13 +35,18 @@ def extract_frames(video_path, output_rate=1):
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     frame_interval = int(fps * output_rate)
 
-    for frame_number in range(0, total_frames, frame_interval):
+    frames = list(range(0, total_frames, frame_interval))
+    if frames[-1] != total_frames - 1:
+        # Make sure to include the last frame
+        frames.append(total_frames - 1)
+
+    # Loop through the frames
+    for frame_number in frames:
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # Jump ahead to the next frame_interval
         ret, frame = cap.read()
-        if not ret:
-            break
-        timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # Timestamp in seconds
-        yield frame, timestamp
+        if ret:
+            timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # Timestamp in seconds
+            yield frame, timestamp
 
     cap.release()
 
@@ -100,7 +105,7 @@ def detect_false_positives(box):
 
     return False # No false positives detected
 
-def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='yolov5s', confidence_threshold=0.3):
+def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="yolov5s", confidence_threshold=0.3):
     """
     Detect birds in frames using a pre-trained YOLOv5 model.
     Args:
@@ -112,7 +117,7 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='y
         bird_times (list): List of timestamps where birds were detected.
     """
     # Load the YOLOv5 model
-    model = torch.hub.load('ultralytics/yolov5', model_name, pretrained=True)
+    model = torch.hub.load("ultralytics/yolov5", model_name, pretrained=True)
     bird_times = pd.DataFrame(columns=["Bird Detected At (s)", "Confidence"])
 
     # Process frames one by one
@@ -121,13 +126,37 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='y
         # Checking birds
         results = model(frame)
         detections = results.pandas().xyxy[0]
-        birds = detections[(detections['name'] == 'bird') & (detections['confidence'] > confidence_threshold)]
+
+        if debug:
+            _birds = detections
+            if not _birds.empty:
+                names = []
+                for index, row in _birds.iterrows():
+                    names.append(row.get("name"))
+                    box = row[["xmin", "ymin", "xmax", "ymax"]].values
+                    draw_bounding_box(frame, box, label=row.get("name"), confidence=row["confidence"])
+                debug_output_path = output_path / "debug" / "detected_all_objects" / video_path.stem
+                debug_output_path.mkdir(parents=True, exist_ok=True)
+                debug_output_file = debug_output_path / f"frame_{timestamp:.2f}_{'_'.join(names)}.jpg"
+                cv2.imwrite(str(debug_output_file), frame)
+
+        # Hilariously, the model is sometimes identifying birds as "cat" or other things.
+        # FIXME:  This is a temporary fix, but it works for now. Need to train a custom model.
+        birds = detections[
+            (
+                (detections["name"] == "bird") |
+                (detections["name"] == "cat")  |
+                (detections["name"] == "dog")  |
+                (detections["name"] == "person")
+            ) & 
+            (detections["confidence"] > confidence_threshold)
+            ]
         if not birds.empty:
             print(f"Bird detected at {timestamp:.2f} seconds")
 
             for index, row in birds.iterrows():
-                box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
-                
+                box = row[["xmin", "ymin", "xmax", "ymax"]].values
+
                 # Check for false positives
                 if detect_false_positives(box):
                     print(f"False positive detected at {timestamp:.2f} seconds")
@@ -135,11 +164,16 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name='y
 
                 if debug:
                     print(f"DEBUG: Bird detection parameters:\n {row}")
-                    box = row[['xmin', 'ymin', 'xmax', 'ymax']].values
-                    draw_bounding_box(frame, box, label="bird", confidence=row['confidence'])
-                    cv2.imwrite(str(output_path / f"frame_{timestamp:.2f}.jpg"), frame)
+                    box = row[["xmin", "ymin", "xmax", "ymax"]].values
+                    draw_bounding_box(frame, box, label=row.get("name"), confidence=row["confidence"])
 
-                new_row = pd.DataFrame([{"Bird Detected At (s)": timestamp, "Confidence": row['confidence']}])
+                    debug_output_path = output_path / "debug" / "detected_birds" / video_path.stem
+                    debug_output_path.mkdir(parents=True, exist_ok=True)
+                    debug_output_file = debug_output_path / f"frame_{timestamp:.2f}_{row.get("name")}.jpg"
+
+                    cv2.imwrite(str(debug_output_file), frame)
+
+                new_row = pd.DataFrame([{"Bird Detected At (s)": timestamp, "Confidence": row["confidence"]}])
                 bird_times = pd.concat([bird_times, new_row], ignore_index=True)
 
     return bird_times
@@ -228,7 +262,7 @@ def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
     for clip in clips:
         clip.close()
 
-def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate=1, model_name='yolov5s', confidence_threshold=0.3, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
+def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate=1, model_name="yolov5s", confidence_threshold=0.3, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
     """
     Main function to find birds in a video and save clips.
     Args:

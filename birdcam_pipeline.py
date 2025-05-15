@@ -20,13 +20,15 @@ from birdcam_pipeline_single import process_single_video
 import ffmpeg
 import time
 
-def process_videos_from_day(date, video_path, output_path):
+def process_videos_from_day(date, video_path, output_path, output_rate=1, confidence_threshold=0.3):
     """
     Process all videos from a specific day.
     Args:
         date (str): Date in the format YYYYMMDD.
         video_path (Path): Path to the directory containing the videos.
         output_path (Path): Path to the directory where the output will be saved.
+        output_rate (int): Sampling rate for frames (1 frame every n seconds).
+        confidence_threshold (float): Confidence threshold for bird detection.
     """
 
     # Set up paths
@@ -61,10 +63,12 @@ def process_videos_from_day(date, video_path, output_path):
     
     # Loop over all the video files and process them
     for video_file in video_files:
-        process_single_video(video_file, output_path)
+        process_single_video(video_file, output_path, output_rate=output_rate, confidence_threshold=confidence_threshold)
 
     # Combine all clips into a single video
     combine_clips(clips_path, combined_file_path)
+
+    return combined_file_path
 
 if __name__ == "__main__":
 
@@ -94,15 +98,7 @@ if __name__ == "__main__":
     process_videos_from_day(
         date=args.date,
         video_path=input_path,
-        output_path=output_path
+        output_path=output_path,
+        output_rate=2,
+        confidence_threshold=0.3
     )
-
-
-    # start_time = time.time()
-    # process_videos_from_day(
-    #     date="20250502",
-    #     video_path=Path("/Volumes/Cosmos/birdcam/videos/v2"),
-    #     output_path=Path("/Volumes/Cosmos/birdcam/videos/v2/processed_videos_test")
-    # )
-    # end_time = time.time()
-    # print(f"Processing took {end_time - start_time:.2f} seconds.")

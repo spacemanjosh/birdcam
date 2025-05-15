@@ -17,12 +17,14 @@ from find_birds import find_birds_and_save_clips, combine_clips
 from annotate_video import annotate_video
 import ffmpeg
 
-def process_single_video(video_file, output_path):
+def process_single_video(video_file, output_path, output_rate=1, confidence_threshold=0.3):
     """
     Process a single video file.
     Args:
         video_file (Path): Path to the input video file.
         output_path (Path): Path to the directory where the output will be saved.
+        output_rate (int): Sampling rate for frames (1 frame every n seconds).
+        confidence_threshold (float): Confidence threshold for bird detection.
     """
 
     # Check the integrity of the input video file
@@ -44,8 +46,8 @@ def process_single_video(video_file, output_path):
     clips_path.mkdir(parents=True, exist_ok=True)
     annotated_clips_path.mkdir(parents=True, exist_ok=True)
 
-    # Step 1: Generate clips
-    find_birds_and_save_clips(video_file, clips_path)
+    # Step 1: Generate clips.
+    find_birds_and_save_clips(video_file, clips_path, output_rate=output_rate, confidence_threshold=confidence_threshold)
 
     # Step 2: Annotate each clip
     for clip_file in clips_path.glob(f"*{date}_{time}*.mp4"):

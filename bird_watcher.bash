@@ -3,7 +3,9 @@
 source ~/.bashrc
 
 # Directory to watch (where Pi Zero 2W syncs files)
-WATCH_DIR="/bird_drive/recordings"
+WATCH_DIR="/bird_dropbox"
+
+SYNC_DIR="/bird_drive/recordings"
 
 # Output directory for processed files
 OUTPUT_DIR="/bird_drive/processed"
