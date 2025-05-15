@@ -62,6 +62,7 @@ def draw_bounding_box(image, box, label="", confidence=None, color=(0, 255, 0), 
         color: BGR tuple (Note: It is BGR, not RGB in cv2)
         thickness: line thickness
     """
+    
     x1, y1, x2, y2 = map(int, box)
     cv2.rectangle(image, (x1, y1), (x2, y2), color, thickness)
 
@@ -92,11 +93,11 @@ def detect_false_positives(box):
 
     # Map box quantities to floats, checking for NaN values
     if any(np.isnan(x) for x in box):
-        return False
+        return True
     
     # Check for zero width or height
     if box[2] - box[0] <= 0 or box[3] - box[1] <= 0:
-        return False
+        return True
     
     x1, y1, x2, y2 = map(float, box)
     aspect_ratio = (x2 - x1) / (y2 - y1)
@@ -134,6 +135,8 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="y
                 for index, row in _birds.iterrows():
                     names.append(row.get("name"))
                     box = row[["xmin", "ymin", "xmax", "ymax"]].values
+                    if any(np.isnan(x) for x in box):
+                        continue
                     draw_bounding_box(frame, box, label=row.get("name"), confidence=row["confidence"])
                 debug_output_path = output_path / "debug" / "detected_all_objects" / video_path.stem
                 debug_output_path.mkdir(parents=True, exist_ok=True)
