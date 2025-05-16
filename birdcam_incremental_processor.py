@@ -231,7 +231,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dropbox_dir = args.input_path
-    staging_dir = args.ouptut_path
+    staging_dir = args.output_path
     archive_dir = args.archive_path
 
     processor = BirdcamProcessor(dropbox_dir, staging_dir, archive_dir)
