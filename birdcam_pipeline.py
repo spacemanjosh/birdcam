@@ -11,6 +11,13 @@ Usage:
     python birdcam_pipeline.py -d <date> -i <input_path> -o <output_path>
 """
 
+# If running on Raspberry Pi, use the following import statement.  This prevents
+# PyTorch from using MKLDNN, which was causing a lot of false positives.
+import sys
+if sys.platform.startswith('linux'):
+    import torch
+    torch.backends.mkldnn.enabled = False
+
 import argparse
 from pathlib import Path
 from datetime import datetime
