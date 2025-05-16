@@ -17,7 +17,7 @@ class BirdcamProcessor:
         self.dropbox_dir = Path(dropbox_dir)
         self.staging_dir = Path(staging_dir)
         self.archive_dir = Path(archive_dir)
-        self.db_path = archive_dir / "birdcam_catalog.db"
+        self.db_path = staging_dir / "birdcam_catalog.db"
 
         self.initialize_database()
         self.connect_to_db()
