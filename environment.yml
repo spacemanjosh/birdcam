@@ -12,6 +12,7 @@ dependencies:
   - pytorch
   - opencv
   - moviepy
+  - watchdog
   - google-api-python-client 
   - google-auth
   - google-auth-oauthlib

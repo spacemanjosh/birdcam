@@ -56,7 +56,7 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1, confid
             else:
                 # If the file is not empty, skip processing
                 print(f"Combined video file '{combined_file_path}' is valid. Skipping processing.")
-                return
+                return combined_file_path
         except ffmpeg.Error as e:
             print(f"Error probing combined video file: {e}")
             print(f"Reprocessing combined video file '{combined_file_path}'.")
@@ -66,7 +66,7 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1, confid
     video_files = sorted(video_path.glob(f"*{date}_*.mp4"))
     if not video_files:
         print(f"No video files found in '{video_path}'.")
-        return
+        return None
     
     # Loop over all the video files and process them
     for video_file in video_files:
