@@ -91,7 +91,7 @@ class BirdcamProcessor:
 
     def catalog_new_files(self):
         # Check for new files in the dropbox directory
-        for file in self.dropbox_dir.glob("*.mp4"):
+        for file in sorted(self.dropbox_dir.glob("*.mp4")):
             if not self.check_file_status(file):
                 # New file detected
                 self.catalog_file(file)
@@ -99,7 +99,7 @@ class BirdcamProcessor:
 
     def process_files(self):
         # Check for staged files
-        for file in self.staging_dir.glob("*.mp4"):
+        for file in sorted(self.staging_dir.glob("*.mp4")):
             if self.check_file_status(file) == "staged":
                 # Process the file
                 print(f"Processing {file}...")
