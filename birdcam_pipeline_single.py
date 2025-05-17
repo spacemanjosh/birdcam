@@ -54,6 +54,8 @@ def process_single_video(video_file, output_path, output_rate=1, confidence_thre
         # Annotate the clip
         annotate_video(clip_file, annotated_clips_path)
 
+    return date_path
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process birdcam videos to detect birds and save clips.")
     parser.add_argument("-i", "--input_file", type=str, required=True, help="Path to the input video file.")
