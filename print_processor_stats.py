@@ -12,8 +12,8 @@ def connect_to_db(db_path):
 def close_db(conn):
     conn.close()
 
-def get_processing_stats(self):
-    conn, cursor = connect_to_db()
+def get_processing_stats(db_path):
+    conn, cursor = connect_to_db(db_path)
 
     # Get the number of files processed
     cursor.execute("SELECT COUNT(*) FROM files WHERE status = 'processed'")
@@ -31,8 +31,8 @@ def get_processing_stats(self):
     cursor.execute("SELECT COUNT(*) FROM files")
     total_count = cursor.fetchone()[0]
 
-    self.cursor.execute("SELECT * FROM daily_runs")
-    daily_runs = self.cursor.fetchall()
+    cursor.execute("SELECT * FROM daily_runs")
+    daily_runs = cursor.fetchall()
 
     close_db(conn)
 
@@ -54,4 +54,3 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"The database file {db_path} does not exist.")
     
     get_processing_stats(db_path)
-    
