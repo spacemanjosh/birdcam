@@ -278,8 +278,7 @@ class BirdcamProcessor:
             upload_video_wrapper(
                 str(video_file), 
                 publish_at=publish_at,
-                privacy_status=privacy_status,
-                playlist_name="Hacked Birdhouse Daily Highlights"
+                privacy_status=privacy_status
             )
         except Exception as e:
             print(f"Error uploading video {video_file} to YouTube: {e}")
@@ -314,6 +313,7 @@ if __name__ == "__main__":
     processor = BirdcamProcessor(staging_dir, archive_dir)
 
     # Monitor the staging directory for new files
+    # TODO: Perhaps use a service/timer to check for new files instead of a while loop
     while True:
         processor.catalog_new_files()
         processor.process_files()
