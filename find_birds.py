@@ -255,7 +255,7 @@ def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
     # Load clips incrementally and concatenate using "chain" method
     clips = (VideoFileClip(str(clip_file)) for clip_file in clip_files)
     combined = concatenate_videoclips(clips, method="chain")
-
+    
     # Write the combined video to the output file
     combined.write_videofile(str(output_file), codec="libx264", audio_codec="aac", audio=True)
     print(f"Combined video saved to: {output_file}")
