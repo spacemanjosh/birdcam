@@ -155,11 +155,11 @@ class BirdcamProcessor:
             self.update_file_status(file, "processed")
 
             # Remove the original file
-            try:
-                file.unlink()
-            except Exception as e:
-                print(f"Error deleting file {file}: {e}")
-                continue
+            # try:
+            #     file.unlink()
+            # except Exception as e:
+            #     print(f"Error deleting file {file}: {e}")
+            #     continue
 
     def process_daily_combined_file(self):
         # Get the current time and date
