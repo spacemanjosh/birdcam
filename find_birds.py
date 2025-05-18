@@ -373,4 +373,4 @@ if __name__ == "__main__":
     find_birds_and_save_clips(input_file, output_path=output_path)
 
     # Combine bird clips into a single video
-    combine_clips(output_path, output_file=output_file)
+    combine_clips_ffmpeg(output_path, output_file=output_file)
