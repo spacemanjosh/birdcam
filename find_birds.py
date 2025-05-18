@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 from pathlib import Path
+import ffmpeg
 
 debug = True
 
@@ -233,13 +234,16 @@ def group_and_save_clips(video_path, output_path, df_timestamps, pre_buffer=10.0
 
     clip.close()
 
-def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
+def combine_clips_ffmpeg(clips_dir, output_file="combined_bird_clips.mp4", trim_start=0.04):
     """
-    Combine individual video clips into a single video file.
+    Combine individual video clips into a single video file using ffmpeg-python.
     Args:
         clips_dir (str or Path): Directory containing the individual video clips.
         output_file (str): Path to the output combined video file.
+        trim_start (float): Time in seconds to trim from the start of the first clip.
     """
+    clips_dir = Path(clips_dir)
+    output_file = Path(output_file)
 
     if not clips_dir.exists() or not clips_dir.is_dir():
         print(f"Error: Directory '{clips_dir}' does not exist or is not a directory.")
@@ -251,18 +255,62 @@ def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
         print(f"No video clips found in '{clips_dir}'.")
         return
 
-    # Load all clips
-    clips = (VideoFileClip(str(clip_file)) for clip_file in clip_files)
+    # Create a temporary file listing all the video files
+    file_list_path = clips_dir / "file_list.txt"
+    with open(file_list_path, "w") as f:
+        for i, clip_file in enumerate(clip_files):
+            if i == 0 and trim_start > 0:
+                # This trims the first frame which is usually a blank frame.
+                f.write(f"file '{clip_file.resolve()}'\n")
+                f.write(f"inpoint {trim_start}\n")
+            else:
+                f.write(f"file '{clip_file.resolve()}'\n")
 
-    # Concatenate the clips
-    combined = concatenate_videoclips(clips, method="chain")
+    # Use ffmpeg-python to concatenate the video files
+    try:
+        (
+            ffmpeg
+            .input(str(file_list_path), format="concat", safe=0)
+            .output(str(output_file), c="copy")
+            .run(overwrite_output=True)
+        )
+        print(f"Combined video saved to: {output_file}")
+    except ffmpeg.Error as e:
+        print(f"Error during FFmpeg concatenation: {e}")
+    finally:
+        # Clean up the temporary file
+        file_list_path.unlink()
 
-    # Write the combined video to the output file
-    combined.write_videofile(str(output_file), codec="libx264", audio_codec="aac", audio=True)
-    print(f"Combined video saved to: {output_file}")
+# def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
+#     """
+#     Combine individual video clips into a single video file.
+#     Args:
+#         clips_dir (str or Path): Directory containing the individual video clips.
+#         output_file (str): Path to the output combined video file.
+#     """
 
-    # Close the combined video
-    combined.close()
+#     if not clips_dir.exists() or not clips_dir.is_dir():
+#         print(f"Error: Directory '{clips_dir}' does not exist or is not a directory.")
+#         return
+
+#     # Get all video files in the directory, sorted by name
+#     clip_files = sorted(clips_dir.glob("*.mp4"))
+#     if not clip_files:
+#         print(f"No video clips found in '{clips_dir}'.")
+#         return
+
+#     # Load all clips
+#     clips = (VideoFileClip(str(clip_file)) for clip_file in clip_files)
+
+#     # Concatenate the clips
+#     combined = concatenate_videoclips(clips, method="chain")
+
+#     # Write the combined video to the output file
+#     combined.write_videofile(str(output_file), codec="libx264", audio_codec="aac", audio=True)
+#     print(f"Combined video saved to: {output_file}")
+
+#     # Close the combined video
+#     combined.close()
 
 def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate=1, model_name="yolov5s", confidence_threshold=0.3, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
     """

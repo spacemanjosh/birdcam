@@ -13,7 +13,7 @@ Usage:
 import argparse
 from pathlib import Path
 from datetime import datetime
-from find_birds import find_birds_and_save_clips, combine_clips
+from find_birds import find_birds_and_save_clips, combine_clips_ffmpeg
 from annotate_video import annotate_video
 import ffmpeg
 

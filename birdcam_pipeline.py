@@ -73,7 +73,7 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1, confid
         process_single_video(video_file, output_path, output_rate=output_rate, confidence_threshold=confidence_threshold)
 
     # Combine all clips into a single video
-    combine_clips(clips_path, combined_file_path)
+    combine_clips_ffmpeg(clips_path, combined_file_path)
 
     return combined_file_path
 

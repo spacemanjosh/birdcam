@@ -6,7 +6,7 @@ import time
 import subprocess
 from datetime import datetime as dt, timedelta as td
 from birdcam_pipeline_single import process_single_video
-from birdcam_pipeline import process_videos_from_day, combine_clips
+from birdcam_pipeline import process_videos_from_day, combine_clips_ffmpeg
 
 class BirdcamProcessor:
     """
@@ -181,7 +181,7 @@ class BirdcamProcessor:
 
             # Combine all clips into a single video
             date_dir = self.processed_dir / yesterday.strftime("%Y%m%d")
-            combine_clips(date_dir / "annotated_clips", 
+            combine_clips_ffmpeg(date_dir / "annotated_clips", 
                           date_dir / f"{yesterday.strftime('%Y%m%d')}_combined_bird_clips.mp4")
         except Exception as e:
             print(f"Error processing daily combined file for {yesterday}: {e}")
