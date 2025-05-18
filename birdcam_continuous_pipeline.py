@@ -7,6 +7,7 @@ import subprocess
 from datetime import datetime as dt, timedelta as td
 from birdcam_pipeline_single import process_single_video
 from birdcam_pipeline import process_videos_from_day, combine_clips_ffmpeg
+from upload_to_youtube import upload_video_wrapper, convert_to_utc
 
 class BirdcamProcessor:
     """
@@ -45,17 +46,24 @@ class BirdcamProcessor:
     # Initialize SQLite database
     def initialize_database(self):
         self.connect_to_db()
-        # Create the `files` table if it doesn't exist
+        # Create the files table if it doesn't exist
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS files (
                 file_name TEXT PRIMARY KEY,
                 status TEXT
             )
         """)
-        # Create the `daily_runs` table if it doesn't exist
+        # Create the daily_runs table if it doesn't exist
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS daily_runs (
                 run_date TEXT PRIMARY KEY
+            )
+        """)
+        # Create a table to track youtube uploads
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS youtube_uploads (
+                video_name TEXT PRIMARY KEY,
+                upload_date TEXT
             )
         """)
         self.conn.commit()
@@ -161,23 +169,25 @@ class BirdcamProcessor:
 
         # Check if we are at least 3 hours into the next day
         if now.hour < 3:
-            return
+            return None
 
         # Check if the process has already run for yesterday
         if self.has_daily_run(str(yesterday)):
             print(f"Daily combined file processing has already run for {yesterday}.")
-            return
+            return None
 
         # Process videos from yesterday
         print(f"Processing videos from {yesterday} in {self.staging_dir} and saving to {self.processed_dir}...")
         try:
             # Combine all clips into a single video
             date_dir = self.processed_dir / yesterday.strftime("%Y%m%d")
-            combine_clips_ffmpeg(date_dir / "annotated_clips", 
-                          date_dir / f"{yesterday.strftime('%Y%m%d')}_combined_bird_clips.mp4")
+            combined_file = date_dir / f"{yesterday.strftime('%Y%m%d')}_combined_bird_clips.mp4"
+            combine_clips_ffmpeg(
+                date_dir / "annotated_clips",
+                combined_file)
         except Exception as e:
             print(f"Error processing daily combined file for {yesterday}: {e}")
-            return
+            return None
         print(f"Processing for {yesterday} completed!")
 
         # Move the processed file to the archive directory
@@ -188,11 +198,13 @@ class BirdcamProcessor:
             self.sync_files(processed_files, archive_path)
         except Exception as e:
             print(f"Error moving processed files to archive for {yesterday}: {e}")
-            return
+            return None
         print(f"Moved processed files for {yesterday} to archive!")
 
         # Record the daily run in the database
         self.record_daily_run(str(yesterday))
+
+        return combined_file
 
     def get_processing_stats(self):
         self.connect_to_db()
@@ -245,6 +257,43 @@ class BirdcamProcessor:
         self.conn.commit()
         self.close_db()
 
+    def upload_to_youtube_channel(self, video_file, publish_at=None):
+        """
+        Upload a video file to YouTube.
+        Args:
+            video_file (Path): Path to the video file to upload.
+        """
+
+        try:
+            if publish_at:
+                # This will only be private until the publish_at time
+                print(f"Video will be published at {publish_at} UTC.")
+                publish_at = convert_to_utc(publish_at, "America/Los_Angeles")
+                privacy_status = "private"
+            else:
+                print("Video set to public.")
+                publish_at = None
+                privacy_status = "public"
+
+            upload_video_wrapper(
+                str(video_file), 
+                publish_at=publish_at,
+                privacy_status=privacy_status,
+                playlist_name="Hacked Birdhouse Daily Highlights"
+            )
+        except Exception as e:
+            print(f"Error uploading video {video_file} to YouTube: {e}")
+            return None
+        
+        print(f"Uploaded video {video_file} to YouTube!")
+
+        # Record the upload in the database
+        self.connect_to_db()
+        self.cursor.execute("INSERT OR IGNORE INTO youtube_uploads (video_name, upload_date) VALUES (?, ?)",
+                            (video_file.name, dt.now().strftime("%Y-%m-%d %H:%M:%S")))
+        self.conn.commit()
+        self.close_db()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process birdcam videos as they come in from the Pi Zero")
     parser.add_argument(
@@ -269,5 +318,18 @@ if __name__ == "__main__":
         processor.catalog_new_files()
         processor.process_files()
         processor.get_processing_stats()
-        processor.process_daily_combined_file()
+        combined_file = processor.process_daily_combined_file()
+        if combined_file:
+            # If we have a new daily combined file, upload it to Youtube at 5am PT,
+            # unless we are already past that time, in which case we upload it immediately
+            now = dt.now()
+            if now.hour >= 5:
+                publish_at = None
+            else:
+                publish_at = dt.combine(now.date(), dt.strptime("05:00:00", "%H:%M:%S").time())
+
+            # Upload the combined video to YouTube
+            processor.upload_to_youtube_channel(combined_file)
+        else:
+            print("No new daily combined file to process.")
         time.sleep(60 * 5)  # Check every 5 minutes
