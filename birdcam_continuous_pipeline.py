@@ -171,14 +171,6 @@ class BirdcamProcessor:
         # Process videos from yesterday
         print(f"Processing videos from {yesterday} in {self.staging_dir} and saving to {self.processed_dir}...")
         try:
-            # process_videos_from_day(
-            #     date=yesterday.strftime("%Y%m%d"),
-            #     video_path=self.staging_dir,
-            #     output_path=self.processed_dir,
-            #     output_rate=2,
-            #     confidence_threshold=0.3
-            # )
-
             # Combine all clips into a single video
             date_dir = self.processed_dir / yesterday.strftime("%Y%m%d")
             combine_clips_ffmpeg(date_dir / "annotated_clips", 
