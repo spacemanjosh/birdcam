@@ -326,7 +326,7 @@ if __name__ == "__main__":
             if now.hour >= 5:
                 publish_at = None
             else:
-                publish_at = dt.combine(now.date(), dt.strptime("05:00:00", "%H:%M:%S").time())
+                publish_at = dt.combine(dt.now(), dt.strptime("05:00:00", "%H:%M:%S").time())
 
             # Upload the combined video to YouTube
             processor.upload_to_youtube_channel(combined_file)
