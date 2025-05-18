@@ -180,8 +180,9 @@ class BirdcamProcessor:
             # )
 
             # Combine all clips into a single video
-            combine_clips(self.processed_dir / "annotated_clips", 
-                          self.processed_dir / f"{yesterday.strftime('%Y%m%d')}_combined_bird_clips.mp4")
+            date_dir = self.processed_dir / yesterday.strftime("%Y%m%d")
+            combine_clips(date_dir / "annotated_clips", 
+                          date_dir / f"{yesterday.strftime('%Y%m%d')}_combined_bird_clips.mp4")
         except Exception as e:
             print(f"Error processing daily combined file for {yesterday}: {e}")
             return
