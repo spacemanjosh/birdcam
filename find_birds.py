@@ -15,7 +15,8 @@ import cv2
 import torch
 import pandas as pd
 import numpy as np
-from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip
+from moviepy.video.io.VideoFileClip import concatenate_videoclips
 from pathlib import Path
 
 debug = True
@@ -235,7 +236,7 @@ def group_and_save_clips(video_path, output_path, df_timestamps, pre_buffer=10.0
 
 def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
     """
-    Combine individual video clips into a single video file.
+    Combine individual video clips into a single video file incrementally.
     Args:
         clips_dir (str or Path): Directory containing the individual video clips.
         output_file (str): Path to the output combined video file.
@@ -251,19 +252,16 @@ def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
         print(f"No video clips found in '{clips_dir}'.")
         return
 
-    # Load all clips
-    clips = [VideoFileClip(str(clip_file)) for clip_file in clip_files]
-
-    # Concatenate the clips
-    combined = concatenate_videoclips(clips, method="compose")
+    # Load clips incrementally and concatenate using "chain" method
+    clips = (VideoFileClip(str(clip_file)) for clip_file in clip_files)
+    combined = concatenate_videoclips(clips, method="chain")
 
     # Write the combined video to the output file
     combined.write_videofile(str(output_file), codec="libx264", audio_codec="aac", audio=True)
     print(f"Combined video saved to: {output_file}")
 
     # Close all clips
-    for clip in clips:
-        clip.close()
+    combined.close()
 
 def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate=1, model_name="yolov5s", confidence_threshold=0.3, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
     """
