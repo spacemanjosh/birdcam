@@ -44,6 +44,8 @@ log "===== Starting script ====="
 # Before we get started, rsync the recordings directory
 # back to the main server.  This may be necessary if there were
 # a network problem that prevented the rsync in the loop below.
+log "Sleep for 10 seconds to allow system to stabilize."
+sleep 10
 log "Starting rsync..."
 rsync -av "$output_dir"/*.mp4 homebase:/bird_dropbox/
 log "Finished rsync."
@@ -65,6 +67,9 @@ while true; do
     break
   fi
 done
+
+log "Sleep for 10 seconds before starting recording."
+sleep 10
 
 output_file=$(create_filename)
 log "Starting recording: $output_file"
