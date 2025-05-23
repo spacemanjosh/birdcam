@@ -7,15 +7,7 @@ script_dir=$(dirname "$0")
 output_dir="$script_dir/recordings"
 max_usage=50
 
-# Backup server details
-backup_server="birdserver"
-backup_dir="/bird_drive/recordings"
-
-# Recording duration in seconds
-recording_duration=600 # 10 minutes
-
 # Function to check disk usage
-# Note in bash, a "0" means "True" and a "1" means "False".
 check_disk_usage() {
   local usage=$(df -h "$output_dir" | awk 'NR==2 {print $5}' | sed 's/%//')
   if [ "$usage" -ge $max_usage ]; then
@@ -28,9 +20,9 @@ check_disk_usage() {
 
 # Function to delete the oldest file
 delete_oldest_file() {
-  local oldest_file=$(find "$output_dir" -type f -printf '%T+ %p\n' | sort | head -n 1 | awk '{print $2}')
+  local oldest_file=$(ls -t "$output_dir" | tail -1)
   if [ -n "$oldest_file" ]; then
-    rm "$oldest_file"
+    rm "$output_dir/$oldest_file"
     echo "Deleted oldest file: $oldest_file"
   fi
 }
@@ -41,32 +33,40 @@ create_filename() {
   echo "$output_dir/birdcam_$timestamp.mp4"
 }
 
-create_still_filename() {
-  local timestamp=$(date +"%Y%m%d_%H%M%S")
-  echo "$output_dir/birdcam_$timestamp.jpg"
+logfile="$script_dir/birdcam_stream_debug.log"
+
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$logfile"
 }
 
-# Before starting the main loop, rsync the existing files to the backup server.
-# This is sometimes necessary if we've lost internet connectivity.  This way
-# it can still continue to record and we can recover the files later.
-rsync -avz $output_dir/ $backup_server:$backup_dir/
+log "===== Starting script ====="
 
-# Main loop to make recordings
+# Before we get started, rsync the recordings directory
+# back to the main server.  This may be necessary if there were
+# a network problem that prevented the rsync in the loop below.
+log "Starting rsync..."
+rsync -av "$output_dir"/*.mp4 homebase:/bird_dropbox/
+log "Finished rsync."
+
+# Main loop to make half-hourly recordings
+log "Entering disk space check loop..."
 while true; do
-
-  # Check for the existence of the stop_streaming file
   if [ -f "$output_dir/stop_streaming" ]; then
-    echo "Stop streaming file found. Exiting."
-    rm $output_dir/stop_streaming
+    log "Stop file found. Exiting."
+    rm "$output_dir/stop_streaming"
     exit 0
   fi
 
   if ! check_disk_usage; then
+    log "Disk full. Deleted a file. Retrying."
     continue
+  else
+    log "Disk usage OK. Breaking loop."
+    break
   fi
-  output_file=$(create_filename)
-  $script_dir/birdcam_stream.bash -o "$output_file" -t $recording_duration -a
-
-  # rsync the file to the backup server
-  rsync -avz "$output_file" $backup_server:$backup_dir/
 done
+
+output_file=$(create_filename)
+log "Starting recording: $output_file"
+$script_dir/birdcam_stream.bash -o "$output_file" -t 600 -a
+log "Finished recording: $output_file"
