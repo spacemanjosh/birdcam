@@ -20,7 +20,7 @@ check_disk_usage() {
 
 # Function to delete the oldest file
 delete_oldest_file() {
-  local oldest_file=$(ls -t "$output_dir" | tail -1)
+  local oldest_file=$(find "$output_dir" -type f -printf '%T+ %p\n' | sort | head -n 1 | awk '{print $2}')
   if [ -n "$oldest_file" ]; then
     rm "$output_dir/$oldest_file"
     echo "Deleted oldest file: $oldest_file"
