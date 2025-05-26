@@ -145,7 +145,7 @@ class BirdcamProcessor:
                                     confidence_threshold=0.3)
                 
                 # Move the processed file to the archive directory
-                self.sync_files(output_dir, self.archive_dir / "processed" / output_dir.name)
+                self.sync_files(output_dir, self.archive_dir / "processed")
             except Exception as e:
                 print(f"Error processing file {file}: {e}")
                 self.update_file_status(file, "failed")
@@ -167,15 +167,6 @@ class BirdcamProcessor:
         today = now.date()
         yesterday = today - td(days=1)
 
-        # Check if we are at least 3 hours into the next day
-        if now.hour < 3:
-            return None
-
-        # Check if the process has already run for yesterday
-        if self.has_daily_run(str(yesterday)):
-            print(f"Daily combined file processing has already run for {yesterday}.")
-            return None
-
         # Process videos from yesterday
         print(f"Processing videos from {yesterday} in {self.staging_dir} and saving to {self.processed_dir}...")
         try:
@@ -193,7 +184,7 @@ class BirdcamProcessor:
         # Move the processed file to the archive directory
         try:
             processed_files = self.processed_dir / yesterday.strftime("%Y%m%d")
-            archive_path = self.archive_dir / "processed" / yesterday.strftime("%Y%m%d")
+            archive_path = self.archive_dir / "processed"
             archive_path.mkdir(parents=True, exist_ok=True)
             self.sync_files(processed_files, archive_path)
         except Exception as e:
@@ -318,18 +309,30 @@ if __name__ == "__main__":
         processor.catalog_new_files()
         processor.process_files()
         processor.get_processing_stats()
-        combined_file = processor.process_daily_combined_file()
-        if combined_file:
-            # If we have a new daily combined file, upload it to Youtube at 5am PT,
-            # unless we are already past that time, in which case we upload it immediately
-            now = dt.now()
-            if now.hour >= 5:
-                publish_at = None
-            else:
-                publish_at = dt.combine(dt.now(), dt.strptime("05:00:00", "%H:%M:%S").time())
 
-            # Upload the combined video to YouTube
-            processor.upload_to_youtube_channel(combined_file)
-        else:
-            print("No new daily combined file to process.")
+        # Check if we are at least 3 hours into the next day.  If so, process 
+        # the daily combined file.
+        now = dt.now()
+        today = now.date()
+        yesterday = today - td(days=1)
+        publish_hour = 18 # 6pm
+        process_hour = 6 # am
+        if now.hour >= process_hour:
+            # Check if the process has already run for yesterday
+            if processor.has_daily_run(str(yesterday)):
+                print(f"Daily combined file processing has already run for {yesterday}.")
+            else:
+                print(f"Processing daily combined file for {yesterday}...")
+                combined_file = processor.process_daily_combined_file()
+                if combined_file:
+                    # If we have a new daily combined file, upload it to Youtube.                    now = dt.now()
+                    if now.hour >= publish_hour:
+                        publish_at = None
+                    else:
+                        publish_at = dt.combine(dt.now(), dt.strptime(f"{publish_hour}:00:00", "%H:%M:%S").time())
+
+                    # Upload the combined video to YouTube
+                    processor.upload_to_youtube_channel(combined_file, publish_at=publish_at)
+                else:
+                    print("No new daily combined file to process.")
         time.sleep(60 * 5)  # Check every 5 minutes
