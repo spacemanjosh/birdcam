@@ -132,7 +132,20 @@ class BirdcamProcessor:
         except subprocess.CalledProcessError as e:
             print(f"Error during rsync: {e.stderr}")
 
-    def process_files(self):
+    def sync_processed_files(self, day):
+        """
+        Sync processed files to the archive directory.
+        """
+        try:
+            processed_files = self.processed_dir / day.strftime("%Y%m%d")
+            archive_path = self.archive_dir / "processed"
+            archive_path.mkdir(parents=True, exist_ok=True)
+            self.sync_files(processed_files, archive_path)
+            print(f"Moved processed files for {day} to archive!")
+        except Exception as e:
+            print(f"Error moving processed files to archive for {day}: {e}")
+
+    def process_new_files(self):
         # Check for staged files
         staged_files = self.get_staged_files()
         for file in staged_files:
@@ -143,9 +156,6 @@ class BirdcamProcessor:
                                     self.processed_dir, 
                                     output_rate=2, 
                                     confidence_threshold=0.3)
-                
-                # Move the processed file to the archive directory
-                self.sync_files(output_dir, self.archive_dir / "processed")
             except Exception as e:
                 print(f"Error processing file {file}: {e}")
                 self.update_file_status(file, "failed")
@@ -176,24 +186,16 @@ class BirdcamProcessor:
             combine_clips_ffmpeg(
                 date_dir / "annotated_clips",
                 combined_file)
+            
+            # Record the daily run in the database
+            self.record_daily_run(str(yesterday))
         except Exception as e:
+            if combined_file.exists():
+                combined_file.unlink()
             print(f"Error processing daily combined file for {yesterday}: {e}")
             return None
+        
         print(f"Processing for {yesterday} completed!")
-
-        # Move the processed file to the archive directory
-        try:
-            processed_files = self.processed_dir / yesterday.strftime("%Y%m%d")
-            archive_path = self.archive_dir / "processed"
-            archive_path.mkdir(parents=True, exist_ok=True)
-            self.sync_files(processed_files, archive_path)
-        except Exception as e:
-            print(f"Error moving processed files to archive for {yesterday}: {e}")
-            return None
-        print(f"Moved processed files for {yesterday} to archive!")
-
-        # Record the daily run in the database
-        self.record_daily_run(str(yesterday))
 
         return combined_file
 
@@ -271,18 +273,18 @@ class BirdcamProcessor:
                 publish_at=publish_at,
                 privacy_status=privacy_status
             )
+
+            print(f"Uploaded video {video_file} to YouTube!")
+
+            # Record the upload in the database
+            self.connect_to_db()
+            self.cursor.execute("INSERT OR IGNORE INTO youtube_uploads (video_name, upload_date) VALUES (?, ?)",
+                                (video_file.name, dt.now().strftime("%Y-%m-%d %H:%M:%S")))
+            self.conn.commit()
+            self.close_db()
         except Exception as e:
             print(f"Error uploading video {video_file} to YouTube: {e}")
             return None
-        
-        print(f"Uploaded video {video_file} to YouTube!")
-
-        # Record the upload in the database
-        self.connect_to_db()
-        self.cursor.execute("INSERT OR IGNORE INTO youtube_uploads (video_name, upload_date) VALUES (?, ?)",
-                            (video_file.name, dt.now().strftime("%Y-%m-%d %H:%M:%S")))
-        self.conn.commit()
-        self.close_db()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process birdcam videos as they come in from the Pi Zero")
@@ -307,14 +309,17 @@ if __name__ == "__main__":
     # TODO: Perhaps use a service/timer to check for new files instead of a while loop
     while True:
         processor.catalog_new_files()
-        processor.process_files()
-        processor.get_processing_stats()
+        processor.process_new_files()
 
-        # Check if we are at least 3 hours into the next day.  If so, process 
-        # the daily combined file.
         now = dt.now()
         today = now.date()
         yesterday = today - td(days=1)
+
+        # Sync processed files to the archive directory
+        processor.sync_processed_files(today)
+
+        # Check if we are at least 6 hours into the next day.  If so, process 
+        # the daily combined file.
         publish_hour = 18 # 6pm
         process_hour = 6 # am
         if now.hour >= process_hour:
@@ -335,4 +340,8 @@ if __name__ == "__main__":
                     processor.upload_to_youtube_channel(combined_file, publish_at=publish_at)
                 else:
                     print("No new daily combined file to process.")
+
+            # Sync processed files to the archive directory
+            processor.sync_processed_files(yesterday)
+
         time.sleep(60 * 5)  # Check every 5 minutes
