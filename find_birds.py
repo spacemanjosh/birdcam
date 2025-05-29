@@ -19,7 +19,8 @@ from moviepy.editor import VideoFileClip, concatenate_videoclips
 from pathlib import Path
 import ffmpeg
 
-debug = True
+debug = False
+debug_all_objects = False
 
 def extract_frames(video_path, output_rate=1):
     """
@@ -120,7 +121,9 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="y
     """
     # Load the YOLOv5 model
     model = torch.hub.load("ultralytics/yolov5", model_name, pretrained=True)
-    bird_times = pd.DataFrame(columns=["Bird Detected At (s)", "Confidence"])
+    columns = ["Bird Detected At (s)", "Confidence", "name", "xmin", "ymin", "xmax", "ymax"]
+    bird_times = pd.DataFrame(columns=columns)
+    not_bird_times = pd.DataFrame(columns=columns)
 
     # Process frames one by one
     for frame, timestamp in extract_frames(video_path, output_rate=output_rate):
@@ -129,7 +132,7 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="y
         results = model(frame)
         detections = results.pandas().xyxy[0]
 
-        if debug:
+        if debug_all_objects:
             _birds = detections
             if not _birds.empty:
                 names = []
@@ -155,6 +158,15 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="y
             ) & 
             (detections["confidence"] > confidence_threshold)
             ]
+        not_birds = detections[
+            ~(
+                (detections["name"] == "bird") |
+                (detections["name"] == "cat")  |
+                (detections["name"] == "dog")  |
+                (detections["name"] == "person")
+            ) &
+            (detections["confidence"] > confidence_threshold)
+            ]
         if not birds.empty:
             print(f"Bird detected at {timestamp:.2f} seconds")
 
@@ -177,10 +189,34 @@ def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="y
 
                     cv2.imwrite(str(debug_output_file), frame)
 
-                new_row = pd.DataFrame([{"Bird Detected At (s)": timestamp, "Confidence": row["confidence"]}])
+                detections = {
+                    "Bird Detected At (s)": timestamp,
+                    "Confidence": row["confidence"],
+                    "name": row["name"],
+                    "xmin": row["xmin"],
+                    "ymin": row["ymin"],
+                    "xmax": row["xmax"],
+                    "ymax": row["ymax"]
+                }
+                new_row = pd.DataFrame([detections])
                 bird_times = pd.concat([bird_times, new_row], ignore_index=True)
 
-    return bird_times
+        if not not_birds.empty:
+            for index, row in not_birds.iterrows():
+                box = row[["xmin", "ymin", "xmax", "ymax"]].values
+
+                detections = {
+                    "Bird Detected At (s)": timestamp,
+                    "Confidence": row["confidence"],
+                    "name": row["name"],
+                    "xmin": row["xmin"],
+                    "ymin": row["ymin"],
+                    "xmax": row["xmax"],
+                    "ymax": row["ymax"]
+                }
+                new_row = pd.DataFrame([detections])
+                not_bird_times = pd.concat([not_bird_times, new_row], ignore_index=True)
+    return bird_times, not_bird_times
 
 def group_and_save_clips(video_path, output_path, df_timestamps, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
     """
@@ -329,6 +365,7 @@ def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate
     # If the CSV file already exists, load it and skip bird detection.
     # But if the CSV file is empty, reprocess bird detection.
     csv_file = output_path / f"{video_path.stem}_timestamps.csv"
+    csv_file_not_birds = output_path / f"{video_path.stem}_timestamps_not_birds.csv"
     reprocess = False
     if csv_file.exists():
         # Load existing timestamps from CSV, sorted
@@ -338,14 +375,17 @@ def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate
         reprocess = True
     if reprocess:
         print(f"Looking for birds in {video_path}...")
-        bird_timestamps = detect_birds(video_path, 
-                                       output_path=output_path, 
-                                       model_name=model_name, 
-                                       confidence_threshold=confidence_threshold,
-                                       output_rate=output_rate)
+        bird_timestamps, not_bird_timestamps = detect_birds(
+            video_path, 
+            output_path=output_path, 
+            model_name=model_name, 
+            confidence_threshold=confidence_threshold,
+            output_rate=output_rate
+            )
 
         # Save timestamps to CSV
         bird_timestamps.to_csv(str(csv_file), index=False)
+        not_bird_timestamps.to_csv(str(csv_file_not_birds), index=False)
 
     # Export clips
     group_and_save_clips(video_path, output_path, bird_timestamps, pre_buffer, post_buffer, min_gap)
