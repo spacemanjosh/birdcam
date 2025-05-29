@@ -142,8 +142,10 @@ class BirdcamProcessor:
             archive_path.mkdir(parents=True, exist_ok=True)
             self.sync_files(processed_files, archive_path)
             print(f"Moved processed files for {day} to archive!")
+            return True
         except Exception as e:
             print(f"Error moving processed files to archive for {day}: {e}")
+            return False
 
     def process_new_files(self):
         # Check for staged files
@@ -314,6 +316,7 @@ if __name__ == "__main__":
         now = dt.now()
         today = now.date()
         yesterday = today - td(days=1)
+        two_days_ago = today - td(days=2)
 
         # Sync processed files to the archive directory
         processor.sync_processed_files(today)
@@ -338,10 +341,30 @@ if __name__ == "__main__":
 
                     # Upload the combined video to YouTube
                     processor.upload_to_youtube_channel(combined_file, publish_at=publish_at)
+
+                    # Remove annotated clips after processing the daily combined file
+                    print(f"Removing annotated clips for {yesterday}...")
+                    annotated_clips_dir = combined_file.parent / "annotated_clips"
+                    if annotated_clips_dir.exists():
+                        try:
+                            shutil.rmtree(annotated_clips_dir)
+                            print(f"Deleted annotated clips for {yesterday}.")
+                        except Exception as e:
+                            print(f"Error deleting annotated clips for {yesterday}: {e}")
                 else:
                     print("No new daily combined file to process.")
 
             # Sync processed files to the archive directory
             processor.sync_processed_files(yesterday)
+
+            # Delete the processed files for two days ago to save disk space.
+            print(f"Deleting processed files for {two_days_ago} if they exist...")
+            two_days_ago_dir = processor.processed_dir / two_days_ago.strftime("%Y%m%d")
+            if two_days_ago_dir.exists():
+                try:
+                    shutil.rmtree(two_days_ago_dir)
+                    print(f"Deleted processed files for {two_days_ago}.")
+                except Exception as e:
+                    print(f"Error deleting processed files for {two_days_ago}: {e}")
 
         time.sleep(60 * 5)  # Check every 5 minutes
