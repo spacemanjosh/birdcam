@@ -372,10 +372,19 @@ if __name__ == "__main__":
         required=True,
         help="Path to the directory where the output will be saved."
     )
+    parser.add_argument(
+        "-d", "--process_daily_file",
+        required=False,
+        default=False,
+        type=bool,
+        action='store_true',
+        help="Process the daily combined file."
+    )
     args = parser.parse_args()
 
     staging_dir = Path(args.input_path)
     archive_dir = Path(args.archive_path)
+    process_daily_file = args.process_daily_file
 
     processor = BirdcamProcessor(staging_dir, archive_dir)
 
@@ -393,7 +402,8 @@ if __name__ == "__main__":
         # Sync processed files to the archive directory
         check = processor.sync_processed_files(today)
 
-        processor.process_and_upload_daily_combined_file(yesterday)
+        if process_daily_file:
+            processor.process_and_upload_daily_combined_file(yesterday)
 
         processor.delete_old_processed_files(two_days_ago)
 
