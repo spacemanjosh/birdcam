@@ -191,16 +191,16 @@ class BirdcamProcessor:
                 self.update_file_status(file, "failed")
 
     def process_daily_combined_file(self, day):
-        # Get the current time and date
-        now = dt.now()
-        today = now.date()
-        yesterday = today - td(days=1)
 
-        # Process videos from yesterday
+        # Process dail video.
         logger.info(f"Processing videos from {day} in {self.staging_dir} and saving to {self.processed_dir}...")
         try:
+            # Pull files from the archive to the processed directory
+            date_dir_archive = self.archive_dir / "processed" / day.strftime("%Y%m%d")
+            date_dir = self.processed_dir / day.strftime("%Y%m%d")
+            self.sync_files(date_dir_archive, date_dir)
+
             # Combine all clips into a single video
-            date_dir = self.archive_dir / day.strftime("%Y%m%d")
             combined_file = date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips.mp4"
             combine_clips_ffmpeg(
                 date_dir / "annotated_clips",
@@ -347,9 +347,6 @@ class BirdcamProcessor:
                 else:
                     logger.info("No new daily combined file to process.")
 
-            # Sync processed files to the archive directory
-            processor.sync_processed_files(day)
-
     def delete_old_processed_files(self, day):
         # Delete the processed files for the specified day to save disk space.
         logger.info(f"Deleting processed files for {day} if they exist...")
@@ -405,6 +402,9 @@ if __name__ == "__main__":
 
         if process_daily_file:
             processor.process_and_upload_daily_combined_file(yesterday)
+
+        # Sync processed files to the archive directory
+        processor.sync_processed_files(yesterday)
 
         processor.delete_old_processed_files(two_days_ago)
 
