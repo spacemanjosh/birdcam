@@ -374,7 +374,6 @@ if __name__ == "__main__":
         "-d", "--process_daily_file",
         required=False,
         default=False,
-        type=bool,
         action='store_true',
         help="Process the daily combined file."
     )
