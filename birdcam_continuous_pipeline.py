@@ -201,22 +201,27 @@ class BirdcamProcessor:
             self.sync_files(date_dir_archive, date_dir)
 
             # Combine all clips into a single video
-            combined_file = date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips.mp4"
+            combined_files = [
+                date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips_AM.mp4",
+                date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips_PM.mp4"
+            ]
             combine_clips_ffmpeg(
                 date_dir / "annotated_clips",
-                combined_file)
+                combined_files)
             
             # Record the daily run in the database
-            if combined_file.exists():
+            # Check if both combined files exist
+            if any(combined_file.exists() for combined_file in combined_files):
                 self.record_daily_run(str(day))
                 logger.info(f"Processing for {day} completed!")
-                return combined_file
+                return combined_files
             else:
                 logger.error(f"Error processing daily combined file for {day}")
                 return None
         except Exception as e:
-            if combined_file.exists():
-                combined_file.unlink()
+            for combined_file in combined_files:
+                if combined_file.exists():
+                    combined_file.unlink()
             logger.error(f"Error processing daily combined file for {day}: {e}")
             return None        
 
@@ -318,34 +323,35 @@ class BirdcamProcessor:
                 logger.info(f"Daily combined file processing has already run for {day}.")
             else:
                 logger.info(f"Processing daily combined file for {day}...")
-                combined_file = self.process_daily_combined_file(day)
-                if combined_file:
-                    # If we have a new daily combined file, upload it to Youtube.                    now = dt.now()
-                    if now.hour >= publish_hour:
-                        publish_at = None
-                    else:
-                        publish_at = str(dt.combine(dt.now(), dt.strptime(f"{publish_hour}:00:00", "%H:%M:%S").time()))
+                combined_files = self.process_daily_combined_file(day)
+                for combined_file in combined_files:
+                    if combined_file.exists():
+                        # If we have a new daily combined file, upload it to Youtube.                    now = dt.now()
+                        if now.hour >= publish_hour:
+                            publish_at = None
+                        else:
+                            publish_at = str(dt.combine(dt.now(), dt.strptime(f"{publish_hour}:00:00", "%H:%M:%S").time()))
 
-                    # Upload the combined video to YouTube
-                    # TODO: Catch when this fails and log it
-                    check = self.upload_to_youtube_channel(combined_file, publish_at=publish_at)
-                    if check:
-                        logger.info(f"Successfully uploaded daily combined file for {day} to YouTube.")
-                    
-                        # Remove annotated clips after processing the daily combined file
-                        logger.info(f"Removing annotated clips for {day}...")
-                        annotated_clips_dir = combined_file.parent / "annotated_clips"
-                        if annotated_clips_dir.exists():
-                            try:
-                                shutil.rmtree(annotated_clips_dir)
-                                logger.info(f"Deleted annotated clips for {day}.")
-                            except Exception as e:
-                                logger.error(f"Error deleting annotated clips for {day}: {e}")
-                    else:
-                        logger.error(f"Failed to upload daily combined file for {day} to YouTube.")
+                        # Upload the combined video to YouTube
+                        # TODO: Catch when this fails and log it
+                        check = self.upload_to_youtube_channel(combined_file, publish_at=publish_at)
+                        if check:
+                            logger.info(f"Successfully uploaded daily combined file for {day} to YouTube.")
+                        
+                            # Remove annotated clips after processing the daily combined file
+                            logger.info(f"Removing annotated clips for {day}...")
+                            annotated_clips_dir = combined_file.parent / "annotated_clips"
+                            if annotated_clips_dir.exists():
+                                try:
+                                    shutil.rmtree(annotated_clips_dir)
+                                    logger.info(f"Deleted annotated clips for {day}.")
+                                except Exception as e:
+                                    logger.error(f"Error deleting annotated clips for {day}: {e}")
+                        else:
+                            logger.error(f"Failed to upload daily combined file for {day} to YouTube.")
 
-                else:
-                    logger.info("No new daily combined file to process.")
+                    else:
+                        logger.info("No new daily combined file to process.")
 
     def delete_old_processed_files(self, day):
         # Delete the processed files for the specified day to save disk space.

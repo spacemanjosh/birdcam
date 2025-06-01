@@ -270,7 +270,7 @@ def group_and_save_clips(video_path, output_path, df_timestamps, pre_buffer=10.0
 
     clip.close()
 
-def combine_clips_ffmpeg(clips_dir, output_file="combined_bird_clips.mp4", trim_start=0.04):
+def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"], trim_start=0.04):
     """
     Combine individual video clips into a single video file using ffmpeg-python.
     Args:
@@ -279,44 +279,51 @@ def combine_clips_ffmpeg(clips_dir, output_file="combined_bird_clips.mp4", trim_
         trim_start (float): Time in seconds to trim from the start of the first clip.
     """
     clips_dir = Path(clips_dir)
-    output_file = Path(output_file)
-
     if not clips_dir.exists() or not clips_dir.is_dir():
         print(f"Error: Directory '{clips_dir}' does not exist or is not a directory.")
         return
 
     # Get all video files in the directory, sorted by name
-    clip_files = sorted(clips_dir.glob("*.mp4"))
-    if not clip_files:
+    all_clip_files = sorted(clips_dir.glob("*.mp4"))
+    if not all_clip_files:
         print(f"No video clips found in '{clips_dir}'.")
         return
+    
+    # If we have two output files, break the clips into AM and PM clips
+    if isinstance(output_files, list) and len(output_files) == 2:
+        am_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) <= 12]
+        pm_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) > 12]
+        all_clip_files = [am_clips, pm_clips]
 
-    # Create a temporary file listing all the video files
-    file_list_path = clips_dir / "file_list.txt"
-    with open(file_list_path, "w") as f:
-        for i, clip_file in enumerate(clip_files):
-            if i == 0 and trim_start > 0:
-                # This trims the first frame which is usually a blank frame.
-                f.write(f"file '{clip_file.resolve()}'\n")
-                f.write(f"inpoint {trim_start}\n")
-            else:
-                f.write(f"file '{clip_file.resolve()}'\n")
+    for output_file, clip_files in zip(output_files, all_clip_files):
+        output_file = Path(output_file)
 
-    # Use ffmpeg-python to concatenate the video files
-    try:
-        (
-            ffmpeg
-            .input(str(file_list_path), format="concat", safe=0)
-            .output(str(output_file), c="copy")
-            .run(overwrite_output=True)
-        )
-        print(f"Combined video saved to: {output_file}")
-    except ffmpeg.Error as e:
-        print(f"Error during FFmpeg concatenation: {e}")
-        raise  # Pass the error up to the caller
-    finally:
-        # Clean up the temporary file
-        file_list_path.unlink()
+        # Create a temporary file listing all the video files
+        file_list_path = clips_dir / "file_list.txt"
+        with open(file_list_path, "w") as f:
+            for i, clip_file in enumerate(clip_files):
+                if i == 0 and trim_start > 0:
+                    # This trims the first frame which is usually a blank frame.
+                    f.write(f"file '{clip_file.resolve()}'\n")
+                    f.write(f"inpoint {trim_start}\n")
+                else:
+                    f.write(f"file '{clip_file.resolve()}'\n")
+
+        # Use ffmpeg-python to concatenate the video files
+        try:
+            (
+                ffmpeg
+                .input(str(file_list_path), format="concat", safe=0)
+                .output(str(output_file), c="copy")
+                .run(overwrite_output=True)
+            )
+            print(f"Combined video saved to: {output_file}")
+        except ffmpeg.Error as e:
+            print(f"Error during FFmpeg concatenation: {e}")
+            raise  # Pass the error up to the caller
+        finally:
+            # Clean up the temporary file
+            file_list_path.unlink()
 
 # def combine_clips(clips_dir, output_file="combined_bird_clips.mp4"):
 #     """
