@@ -313,6 +313,7 @@ def combine_clips_ffmpeg(clips_dir, output_file="combined_bird_clips.mp4", trim_
         print(f"Combined video saved to: {output_file}")
     except ffmpeg.Error as e:
         print(f"Error during FFmpeg concatenation: {e}")
+        raise  # Pass the error up to the caller
     finally:
         # Clean up the temporary file
         file_list_path.unlink()

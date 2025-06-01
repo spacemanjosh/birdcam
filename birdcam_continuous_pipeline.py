@@ -8,6 +8,27 @@ from datetime import datetime as dt, timedelta as td
 from birdcam_pipeline_single import process_single_video
 from birdcam_pipeline import process_videos_from_day, combine_clips_ffmpeg
 from upload_to_youtube import upload_video_wrapper, convert_to_utc
+import logging
+
+# Create a logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# File handler
+file_handler = logging.FileHandler('birdcam.log')
+file_handler.setLevel(logging.INFO)
+file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+
+# Stream handler (outputs to stdout, which systemd captures)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+stream_handler.setFormatter(stream_formatter)
+
+# Add both handlers to the logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 class BirdcamProcessor:
     """
@@ -110,7 +131,7 @@ class BirdcamProcessor:
                     self.catalog_file(file)
                     self.update_file_status(file, "staged")
                 except Exception as e:
-                    print(f"Error cataloging file {file}: {e}")
+                    logger.error(f"Error cataloging file {file}: {e}")
                     self.update_file_status(file, "failed")
                     continue
 
@@ -128,9 +149,9 @@ class BirdcamProcessor:
                 text=True,
                 capture_output=True
             )
-            print(result.stdout)  # Print rsync output
+            logger.info(f"Rsync completed successfully: {result.stdout}")
         except subprocess.CalledProcessError as e:
-            print(f"Error during rsync: {e.stderr}")
+            logger.error(f"Error during rsync: {e.stderr}")
 
     def sync_processed_files(self, day):
         """
@@ -141,10 +162,10 @@ class BirdcamProcessor:
             archive_path = self.archive_dir / "processed"
             archive_path.mkdir(parents=True, exist_ok=True)
             self.sync_files(processed_files, archive_path)
-            print(f"Moved processed files for {day} to archive!")
+            logger.info(f"Moved processed files for {day} to archive!")
             return True
         except Exception as e:
-            print(f"Error moving processed files to archive for {day}: {e}")
+            logger.error(f"Error moving processed files to archive for {day}: {e}")
             return False
 
     def process_new_files(self):
@@ -152,54 +173,52 @@ class BirdcamProcessor:
         staged_files = self.get_staged_files()
         for file in staged_files:
             # Process the file
-            print(f"Processing {file}...")
+            logger.info(f"Processing {file}...")
             try:
                 output_dir = process_single_video(file, 
                                     self.processed_dir, 
                                     output_rate=2, 
                                     confidence_threshold=0.3)
+                if output_dir is None:
+                    logger.info(f"Video file {file} is zero langth. Skipping...")
+                    self.update_file_status(file, "failed")
+                else:
+                    # After processing, update the status
+                    logger.info(f"Processed {file} successfully.")
+                    self.update_file_status(file, "processed")
             except Exception as e:
-                print(f"Error processing file {file}: {e}")
+                logger.error(f"Error processing file {file}: {e}")
                 self.update_file_status(file, "failed")
-                continue
 
-            # After processing, update the status
-            self.update_file_status(file, "processed")
-
-            # Remove the original file
-            # try:
-            #     file.unlink()
-            # except Exception as e:
-            #     print(f"Error deleting file {file}: {e}")
-            #     continue
-
-    def process_daily_combined_file(self):
+    def process_daily_combined_file(self, day):
         # Get the current time and date
         now = dt.now()
         today = now.date()
         yesterday = today - td(days=1)
 
         # Process videos from yesterday
-        print(f"Processing videos from {yesterday} in {self.staging_dir} and saving to {self.processed_dir}...")
+        logger.info(f"Processing videos from {day} in {self.staging_dir} and saving to {self.processed_dir}...")
         try:
             # Combine all clips into a single video
-            date_dir = self.processed_dir / yesterday.strftime("%Y%m%d")
-            combined_file = date_dir / f"{yesterday.strftime('%Y%m%d')}_combined_bird_clips.mp4"
+            date_dir = self.processed_dir / day.strftime("%Y%m%d")
+            combined_file = date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips.mp4"
             combine_clips_ffmpeg(
                 date_dir / "annotated_clips",
                 combined_file)
             
             # Record the daily run in the database
-            self.record_daily_run(str(yesterday))
+            if combined_file.exists():
+                self.record_daily_run(str(day))
+                logger.info(f"Processing for {day} completed!")
+                return combined_file
+            else:
+                logger.error(f"Error processing daily combined file for {day}")
+                return None
         except Exception as e:
             if combined_file.exists():
                 combined_file.unlink()
-            print(f"Error processing daily combined file for {yesterday}: {e}")
-            return None
-        
-        print(f"Processing for {yesterday} completed!")
-
-        return combined_file
+            logger.error(f"Error processing daily combined file for {day}: {e}")
+            return None        
 
     def get_processing_stats(self):
         self.connect_to_db()
@@ -222,10 +241,10 @@ class BirdcamProcessor:
 
         self.close_db()
 
-        print(f"Total files in database: {total_count} as of {dt.now()}")
-        print(f"Files staged: {staged_count}")
-        print(f"Files processed: {processed_count}")
-        print(f"Files failed: {failed_count}")
+        logger.info(f"Total files in database: {total_count} as of {dt.now()}")
+        logger.info(f"Files staged: {staged_count}")
+        logger.info(f"Files processed: {processed_count}")
+        logger.info(f"Files failed: {failed_count}")
 
     def has_daily_run(self, run_date):
         """
@@ -262,11 +281,11 @@ class BirdcamProcessor:
         try:
             if publish_at:
                 # This will only be private until the publish_at time
-                print(f"Video will be published at {publish_at} UTC.")
+                logger.info(f"Video will be published at {publish_at} UTC.")
                 publish_at = convert_to_utc(publish_at, "America/Los_Angeles")
                 privacy_status = "private"
             else:
-                print("Video set to public.")
+                logger.info("Video set to public.")
                 publish_at = None
                 privacy_status = "public"
 
@@ -276,7 +295,7 @@ class BirdcamProcessor:
                 privacy_status=privacy_status
             )
 
-            print(f"Uploaded video {video_file} to YouTube!")
+            logger.info(f"Uploaded video {video_file} to YouTube!")
 
             # Record the upload in the database
             self.connect_to_db()
@@ -284,9 +303,62 @@ class BirdcamProcessor:
                                 (video_file.name, dt.now().strftime("%Y-%m-%d %H:%M:%S")))
             self.conn.commit()
             self.close_db()
+            return True
         except Exception as e:
-            print(f"Error uploading video {video_file} to YouTube: {e}")
-            return None
+            logger.error(f"Error uploading video {video_file} to YouTube: {e}")
+            return False
+        
+    def process_and_upload_daily_combined_file(self, day, process_hour=6, publish_hour=18):
+        # Check if we are at least 6 hours into the next day.  If so, process 
+        # the daily combined file.
+        if now.hour >= process_hour:
+            # Check if the process has already run for yesterday
+            if processor.has_daily_run(str(day)):
+                logger.info(f"Daily combined file processing has already run for {day}.")
+            else:
+                logger.info(f"Processing daily combined file for {day}...")
+                combined_file = processor.process_daily_combined_file(day)
+                if combined_file:
+                    # If we have a new daily combined file, upload it to Youtube.                    now = dt.now()
+                    if now.hour >= publish_hour:
+                        publish_at = None
+                    else:
+                        publish_at = str(dt.combine(dt.now(), dt.strptime(f"{publish_hour}:00:00", "%H:%M:%S").time()))
+
+                    # Upload the combined video to YouTube
+                    # TODO: Catch when this fails and log it
+                    check = processor.upload_to_youtube_channel(combined_file, publish_at=publish_at)
+                    if check:
+                        logger.info(f"Successfully uploaded daily combined file for {day} to YouTube.")
+                    
+                        # Remove annotated clips after processing the daily combined file
+                        logger.info(f"Removing annotated clips for {day}...")
+                        annotated_clips_dir = combined_file.parent / "annotated_clips"
+                        if annotated_clips_dir.exists():
+                            try:
+                                shutil.rmtree(annotated_clips_dir)
+                                logger.info(f"Deleted annotated clips for {day}.")
+                            except Exception as e:
+                                logger.error(f"Error deleting annotated clips for {day}: {e}")
+                    else:
+                        logger.error(f"Failed to upload daily combined file for {day} to YouTube.")
+
+                else:
+                    logger.info("No new daily combined file to process.")
+
+            # Sync processed files to the archive directory
+            processor.sync_processed_files(day)
+
+    def delete_old_processed_files(self, day):
+        # Delete the processed files for the specified day to save disk space.
+        logger.info(f"Deleting processed files for {day} if they exist...")
+        day_dir = processor.processed_dir / day.strftime("%Y%m%d")
+        if day_dir.exists():
+            try:
+                shutil.rmtree(day_dir)
+                logger.info(f"Deleted processed files for {day}.")
+            except Exception as e:
+                logger.error(f"Error deleting processed files for {day}: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process birdcam videos as they come in from the Pi Zero")
@@ -319,52 +391,10 @@ if __name__ == "__main__":
         two_days_ago = today - td(days=2)
 
         # Sync processed files to the archive directory
-        processor.sync_processed_files(today)
+        check = processor.sync_processed_files(today)
 
-        # Check if we are at least 6 hours into the next day.  If so, process 
-        # the daily combined file.
-        publish_hour = 18 # 6pm
-        process_hour = 6 # am
-        if now.hour >= process_hour:
-            # Check if the process has already run for yesterday
-            if processor.has_daily_run(str(yesterday)):
-                print(f"Daily combined file processing has already run for {yesterday}.")
-            else:
-                print(f"Processing daily combined file for {yesterday}...")
-                combined_file = processor.process_daily_combined_file()
-                if combined_file:
-                    # If we have a new daily combined file, upload it to Youtube.                    now = dt.now()
-                    if now.hour >= publish_hour:
-                        publish_at = None
-                    else:
-                        publish_at = str(dt.combine(dt.now(), dt.strptime(f"{publish_hour}:00:00", "%H:%M:%S").time()))
+        processor.process_and_upload_daily_combined_file(yesterday)
 
-                    # Upload the combined video to YouTube
-                    processor.upload_to_youtube_channel(combined_file, publish_at=publish_at)
-
-                    # Remove annotated clips after processing the daily combined file
-                    print(f"Removing annotated clips for {yesterday}...")
-                    annotated_clips_dir = combined_file.parent / "annotated_clips"
-                    if annotated_clips_dir.exists():
-                        try:
-                            shutil.rmtree(annotated_clips_dir)
-                            print(f"Deleted annotated clips for {yesterday}.")
-                        except Exception as e:
-                            print(f"Error deleting annotated clips for {yesterday}: {e}")
-                else:
-                    print("No new daily combined file to process.")
-
-            # Sync processed files to the archive directory
-            processor.sync_processed_files(yesterday)
-
-            # Delete the processed files for two days ago to save disk space.
-            print(f"Deleting processed files for {two_days_ago} if they exist...")
-            two_days_ago_dir = processor.processed_dir / two_days_ago.strftime("%Y%m%d")
-            if two_days_ago_dir.exists():
-                try:
-                    shutil.rmtree(two_days_ago_dir)
-                    print(f"Deleted processed files for {two_days_ago}.")
-                except Exception as e:
-                    print(f"Error deleting processed files for {two_days_ago}: {e}")
+        processor.delete_old_processed_files(two_days_ago)
 
         time.sleep(60 * 5)  # Check every 5 minutes

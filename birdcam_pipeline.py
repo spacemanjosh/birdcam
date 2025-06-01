@@ -70,8 +70,12 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1, confid
     
     # Loop over all the video files and process them
     for video_file in video_files:
-        process_single_video(video_file, output_path, output_rate=output_rate, confidence_threshold=confidence_threshold)
-
+        try:
+            process_single_video(video_file, output_path, output_rate=output_rate, confidence_threshold=confidence_threshold)
+        except Exception as e:
+            print(f"Error processing video file '{video_file}': {e}")
+            continue
+        
     # Combine all clips into a single video
     combine_clips_ffmpeg(clips_path, combined_file_path)
 

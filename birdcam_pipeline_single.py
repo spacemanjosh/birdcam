@@ -32,10 +32,10 @@ def process_single_video(video_file, output_path, output_rate=1, confidence_thre
         probe = ffmpeg.probe(str(video_file))
         if probe['format']['duration'] == '0':
             print(f"Input video file '{video_file}' is empty. Skipping...")
-            return
+            return None
     except ffmpeg.Error as e:
         print(f"Error probing input video file: {e}")
-        return
+        raise # Pass the error up to the caller
 
     # Set up paths
     date = video_file.stem.split('_')[1]  # Extract date from the filename
