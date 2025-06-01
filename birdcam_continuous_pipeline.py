@@ -350,7 +350,7 @@ class BirdcamProcessor:
     def delete_old_processed_files(self, day):
         # Delete the processed files for the specified day to save disk space.
         logger.info(f"Deleting processed files for {day} if they exist...")
-        day_dir = processor.processed_dir / day.strftime("%Y%m%d")
+        day_dir = self.processed_dir / day.strftime("%Y%m%d")
         if day_dir.exists():
             try:
                 shutil.rmtree(day_dir)
