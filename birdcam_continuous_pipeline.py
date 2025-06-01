@@ -314,11 +314,11 @@ class BirdcamProcessor:
         now = dt.now()
         if now.hour >= process_hour:
             # Check if the process has already run for yesterday
-            if processor.has_daily_run(str(day)):
+            if self.has_daily_run(str(day)):
                 logger.info(f"Daily combined file processing has already run for {day}.")
             else:
                 logger.info(f"Processing daily combined file for {day}...")
-                combined_file = processor.process_daily_combined_file(day)
+                combined_file = self.process_daily_combined_file(day)
                 if combined_file:
                     # If we have a new daily combined file, upload it to Youtube.                    now = dt.now()
                     if now.hour >= publish_hour:
@@ -328,7 +328,7 @@ class BirdcamProcessor:
 
                     # Upload the combined video to YouTube
                     # TODO: Catch when this fails and log it
-                    check = processor.upload_to_youtube_channel(combined_file, publish_at=publish_at)
+                    check = self.upload_to_youtube_channel(combined_file, publish_at=publish_at)
                     if check:
                         logger.info(f"Successfully uploaded daily combined file for {day} to YouTube.")
                     
