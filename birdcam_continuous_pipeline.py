@@ -200,7 +200,7 @@ class BirdcamProcessor:
         logger.info(f"Processing videos from {day} in {self.staging_dir} and saving to {self.processed_dir}...")
         try:
             # Combine all clips into a single video
-            date_dir = self.processed_dir / day.strftime("%Y%m%d")
+            date_dir = self.archive_dir / day.strftime("%Y%m%d")
             combined_file = date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips.mp4"
             combine_clips_ffmpeg(
                 date_dir / "annotated_clips",
