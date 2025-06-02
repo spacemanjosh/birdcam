@@ -10,3 +10,5 @@ clips
 upload_to_youtube.py
 youtube_pipeline.py
 test.py
+birdcam_mailer.txt
+bird_notifier.py
