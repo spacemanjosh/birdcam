@@ -73,6 +73,8 @@ def annotate_video(input_file, output_dir=Path("./annotated_videos"), start_time
     filter_complex = (
         f"fps=fps={frame_rate},"
         f"drawtext=fontfile={font_file}:"
+        f"text='@HackedBirdhouse':fontcolor={font_color}:fontsize={font_size}:x=100:y=100:box=0,"
+        f"drawtext=fontfile={font_file}:"
         f"text='{date_fmt}':fontcolor={font_color}:fontsize={font_size}:x=100:y=h-180:box=0,"
         f"drawtext=fontfile={font_file}:"
         f"{dynamic_timecode}:fontcolor={font_color}:fontsize={font_size}:x=100:y=h-140:box=0,"
