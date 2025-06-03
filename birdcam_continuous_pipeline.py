@@ -192,8 +192,8 @@ class BirdcamProcessor:
 
     def process_daily_combined_file(self, day):
 
-        # Process dail video.
-        logger.info(f"Processing videos from {day} in {self.staging_dir} and saving to {self.processed_dir}...")
+        # Process daily video.
+        logger.info(f"Processing daily combined video for {day}...")
         try:
             # Pull files from the archive to the processed directory
             date_dir_archive = self.archive_dir / "processed" / day.strftime("%Y%m%d") / "annotated_clips"
