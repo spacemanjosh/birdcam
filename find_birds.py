@@ -289,6 +289,9 @@ def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"], tr
         print(f"No video clips found in '{clips_dir}'.")
         return
     
+    # Filter out any "._" files that may be created by macOS
+    all_clip_files = [f for f in all_clip_files if not f.name.startswith("._")]
+    
     # If we have two output files, break the clips into AM and PM clips
     if isinstance(output_files, list) and len(output_files) == 2:
         am_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) <= 12]
