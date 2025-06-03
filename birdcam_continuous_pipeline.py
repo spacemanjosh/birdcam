@@ -219,6 +219,7 @@ class BirdcamProcessor:
                 logger.error(f"Error processing daily combined file for {day}")
                 return None
         except Exception as e:
+            date_dir = self.processed_dir / day.strftime("%Y%m%d")
             combined_files = [
                 date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips_AM.mp4",
                 date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips_PM.mp4"
