@@ -276,7 +276,7 @@ class BirdcamProcessor:
         self.conn.commit()
         self.close_db()
 
-    def upload_to_youtube_channel(self, video_file, publish_at=None):
+    def upload_to_youtube_channel(self, video_file, title=": Nesting Western Bluebirds", publish_at=None):
         """
         Upload a video file to YouTube.
         Args:
@@ -296,6 +296,7 @@ class BirdcamProcessor:
 
             upload_video_wrapper(
                 str(video_file), 
+                title=title,
                 publish_at=publish_at,
                 privacy_status=privacy_status
             )
@@ -332,9 +333,18 @@ class BirdcamProcessor:
                         else:
                             publish_at = str(dt.combine(dt.now(), dt.strptime(f"{publish_hour}:00:00", "%H:%M:%S").time()))
 
+                        if combined_file.name.endswith("_AM.mp4"):
+                            title = f"AM: Nesting Western Bluebirds"
+                        elif combined_file.name.endswith("_PM.mp4"):
+                            title = f"PM: Nesting Western Bluebirds"
+                        else:
+                            title = ": Nesting Western Bluebirds"
+
                         # Upload the combined video to YouTube
                         # TODO: Catch when this fails and log it
-                        check = self.upload_to_youtube_channel(combined_file, publish_at=publish_at)
+                        check = self.upload_to_youtube_channel(combined_file, 
+                                                            title=title,
+                                                            publish_at=publish_at)
                         if check:
                             logger.info(f"Successfully uploaded daily combined file for {day} to YouTube.")
                         
