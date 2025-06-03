@@ -294,6 +294,8 @@ def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"], tr
         am_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) <= 12]
         pm_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) > 12]
         all_clip_files = [am_clips, pm_clips]
+    else:
+        all_clip_files = [all_clip_files]
 
     for output_file, clip_files in zip(output_files, all_clip_files):
         output_file = Path(output_file)
@@ -421,4 +423,4 @@ if __name__ == "__main__":
     find_birds_and_save_clips(input_file, output_path=output_path)
 
     # Combine bird clips into a single video
-    combine_clips_ffmpeg(output_path, output_file=output_file)
+    combine_clips_ffmpeg(output_path, output_file)
