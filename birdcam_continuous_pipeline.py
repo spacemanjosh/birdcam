@@ -196,7 +196,7 @@ class BirdcamProcessor:
         logger.info(f"Processing videos from {day} in {self.staging_dir} and saving to {self.processed_dir}...")
         try:
             # Pull files from the archive to the processed directory
-            date_dir_archive = self.archive_dir / "processed" / day.strftime("%Y%m%d")
+            date_dir_archive = self.archive_dir / "processed" / day.strftime("%Y%m%d") / "annotated_clips"
             date_dir = self.processed_dir / day.strftime("%Y%m%d")
             self.sync_files(date_dir_archive, date_dir)
 
