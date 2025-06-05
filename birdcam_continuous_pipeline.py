@@ -319,7 +319,7 @@ class BirdcamProcessor:
             logger.error(f"Error uploading video {video_file} to YouTube: {e}")
             return False
         
-    def process_and_upload_daily_combined_file(self, day, process_hour=5, publish_hour=8):
+    def process_and_upload_daily_combined_file(self, day, process_hour=3, publish_hour=5):
         # Check if we are at least 6 hours into the next day.  If so, process 
         # the daily combined file.
         now = dt.now()
@@ -332,7 +332,8 @@ class BirdcamProcessor:
                 combined_files = self.process_daily_combined_file(day)
                 for combined_file in combined_files:
                     if combined_file.exists():
-                        # If we have a new daily combined file, upload it to Youtube.                    now = dt.now()
+                        # If we have a new daily combined file, upload it to Youtube.   
+                        now = dt.now()
                         if now.hour >= publish_hour:
                             publish_at = None
                         else:
