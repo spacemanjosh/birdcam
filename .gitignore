@@ -12,3 +12,4 @@ youtube_pipeline.py
 test.py
 birdcam_mailer.txt
 bird_notifier.py
+birdcam_emailer.py

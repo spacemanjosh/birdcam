@@ -72,6 +72,19 @@ log "Sleep for 10 seconds before starting recording."
 sleep 10
 
 output_file=$(create_filename)
+
+log "Taking a still image."
+rpicam-still --raw --output "${output_file%.mp4}.jpg"
+if [ $? -ne 0 ]; then
+    log "Failed to capture still image."
+else
+    log "Still image captured: ${output_file%.mp4}.jpg"
+fi
+
 log "Starting recording: $output_file"
 $script_dir/birdcam_stream.bash -o "$output_file" -t 600 -a
+if [ $? -ne 0 ]; then
+    log "Recording failed for: $output_file"
+    exit 1
+fi
 log "Finished recording: $output_file"
