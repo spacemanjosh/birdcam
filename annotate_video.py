@@ -16,7 +16,9 @@ import os
 from pathlib import Path
 import sys
 
-def annotate_video(input_file, output_dir=Path("./annotated_videos"), start_time_seconds=0):
+def annotate_video(input_file, output_dir=Path("./annotated_videos"),
+                    start_time_seconds=0,
+                    skip_bird_detection=False):
     """
     Annotate a video clip with date and time overlays.
     Args:
@@ -59,7 +61,10 @@ def annotate_video(input_file, output_dir=Path("./annotated_videos"), start_time
     # Parse out date (YYYYMMDD) and time (HHMMSS)
     datepart = file_name.split('_')[1]  # YYYYMMDD
     timepart = file_name.split('_')[2]  # HHMMSS
-    clip_start_time = file_name.split('_')[4]  # seconds
+    if not skip_bird_detection:
+        clip_start_time = file_name.split('_')[4]  # seconds
+    else:
+        clip_start_time = 0
 
     # Add the start time to the time part
     start_time_seconds = int(clip_start_time) + int(timepart[:2]) * 3600 + int(timepart[2:4]) * 60 + int(timepart[4:])

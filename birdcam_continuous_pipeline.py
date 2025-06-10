@@ -168,7 +168,7 @@ class BirdcamProcessor:
             logger.error(f"Error moving processed files to archive for {day}: {e}")
             return False
 
-    def process_new_files(self):
+    def process_new_files(self, skip_bird_detection=False):
         # Check for staged files
         staged_files = self.get_staged_files()
         for file in staged_files:
@@ -178,7 +178,8 @@ class BirdcamProcessor:
                 output_dir = process_single_video(file, 
                                     self.processed_dir, 
                                     output_rate=2, 
-                                    confidence_threshold=0.3)
+                                    confidence_threshold=0.3,
+                                    skip_bird_detection=skip_bird_detection)
                 if output_dir is None:
                     logger.info(f"Video file {file} is zero langth. Skipping...")
                     self.update_file_status(file, "failed")
@@ -399,11 +400,19 @@ if __name__ == "__main__":
         action='store_true',
         help="Process the daily combined file."
     )
+    parser.add_argument(
+        "-s", "--skip_bird_detection",
+        required=False,
+        default=False,
+        action='store_true',
+        help="Skip bird detection and only annotate existing clips."
+    )
     args = parser.parse_args()
 
     staging_dir = Path(args.input_path)
     archive_dir = Path(args.archive_path)
     process_daily_file = args.process_daily_file
+    skip_bird_detection = args.skip_bird_detection
 
     processor = BirdcamProcessor(staging_dir, archive_dir)
 
@@ -411,7 +420,7 @@ if __name__ == "__main__":
     # TODO: Perhaps use a service/timer to check for new files instead of a while loop
     while True:
         processor.catalog_new_files()
-        processor.process_new_files()
+        processor.process_new_files(skip_bird_detection=skip_bird_detection)
 
         now = dt.now()
         today = now.date()
