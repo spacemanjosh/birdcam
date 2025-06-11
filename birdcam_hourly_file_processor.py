@@ -23,8 +23,8 @@ if __name__ == "__main__":
     # Check for the last processed hourly file
     processed_dir = archive_dir / "processed"
     processed_dir.mkdir(parents=True, exist_ok=True)
-    last_processed_file = sorted(processed_dir.glob("*.mp4"))
-    last_processed_file = [f for f in last_processed_file if not f.startswith("._")][-1]
+    last_processed_file = sorted(processed_dir.glob("202*/*.mp4"))
+    last_processed_file = [f for f in last_processed_file if not f.name.startswith("._")][-1]
 
     # Get the last processed date and hour from a file that looks like 20250610_combined_bird_clips_05.mp4
     last_processed_date = dt.strptime(last_processed_file.stem.split("_")[0], "%Y%m%d").date()
