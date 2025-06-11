@@ -270,12 +270,15 @@ def group_and_save_clips(video_path, output_path, df_timestamps, pre_buffer=10.0
 
     clip.close()
 
-def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"], trim_start=0.04):
+def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"], 
+                         hour=None,
+                         trim_start=0.04):
     """
     Combine individual video clips into a single video file using ffmpeg-python.
     Args:
         clips_dir (str or Path): Directory containing the individual video clips.
         output_file (str): Path to the output combined video file.
+        hour (int, optional): If provided, will split clips into hourly files.
         trim_start (float): Time in seconds to trim from the start of the first clip.
     """
     clips_dir = Path(clips_dir)
@@ -293,11 +296,19 @@ def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"], tr
     all_clip_files = [f for f in all_clip_files if not f.name.startswith("._")]
     
     # If we have two output files, break the clips into AM and PM clips
-    if isinstance(output_files, list) and len(output_files) == 2:
-        am_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) <= 12]
-        pm_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) > 12]
-        all_clip_files = [am_clips, pm_clips]
+    if hour is None:
+        if isinstance(output_files, list) and len(output_files) == 2:
+            am_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) <= 12]
+            pm_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) > 12]
+            all_clip_files = [am_clips, pm_clips]
+        else:
+            all_clip_files = [all_clip_files]
     else:
+        # If hour is specified, split clips into hourly files
+        all_clip_files = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) == hour]
+        if not all_clip_files:
+            print(f"No video clips found for hour {hour} in '{clips_dir}'.")
+            return
         all_clip_files = [all_clip_files]
 
     for output_file, clip_files in zip(output_files, all_clip_files):

@@ -36,7 +36,7 @@ class BirdcamProcessor:
     catalogs them in a SQLite database, and processes them.
     """
 
-    def __init__(self, staging_dir=None, archive_dir=None):
+    def __init__(self, staging_dir=None, archive_dir=None, daily_run=False):
         # Directory where the videos are staged
         self.staging_dir = Path(staging_dir) / "staging"
         self.staging_dir.mkdir(parents=True, exist_ok=True)
@@ -49,7 +49,10 @@ class BirdcamProcessor:
         self.archive_dir = Path(archive_dir)
 
         # SQLite database file
-        self.db_path = staging_dir / "birdcam_catalog.db"
+        if daily_run:
+            self.db_path = staging_dir / "birdcam_daily_catalog.db"
+        else:
+            self.db_path = staging_dir / "birdcam_catalog.db"
 
         self.initialize_database()
         self.connect_to_db()
@@ -85,6 +88,13 @@ class BirdcamProcessor:
             CREATE TABLE IF NOT EXISTS youtube_uploads (
                 video_name TEXT PRIMARY KEY,
                 upload_date TEXT
+            )
+        """)
+        # Create a table to track hourly youtube uploads
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS hourly_youtube_uploads (
+                date TEXT,
+                hour INTEGER
             )
         """)
         self.conn.commit()
@@ -191,6 +201,34 @@ class BirdcamProcessor:
                 logger.error(f"Error processing file {file}: {e}")
                 self.update_file_status(file, "failed")
 
+    def process_hourly_combined_file(self, day, hour):
+        """
+        Process the hourly combined file for the given day and hour.
+        Args:
+            day (datetime.date): The date for which to process the hourly combined file.
+            hour (int): The hour of the day (0-23) for which to process the file.
+        """
+        logger.info(f"Processing hourly combined video for {day} at hour {hour}...")
+        try:
+            # Pull files from the archive to the processed directory
+            date_dir = self.archive_dir / "processed" / day.strftime("%Y%m%d")
+
+            # Combine all clips into a single video
+            combined_file = date_dir / f"{day.strftime('%Y%m%d')}_combined_bird_clips_{hour:02d}.mp4"
+            if not combined_file.exists():
+                combine_clips_ffmpeg(
+                    date_dir / "annotated_clips",
+                    [combined_file],
+                    hour=hour)
+            else:
+                logger.info(f"Combined file {combined_file} already exists. Skipping processing.")
+
+            logger.info(f"Processing for {day} at hour {hour} completed!")
+            return combined_file
+        except Exception as e:
+            logger.error(f"Error processing hourly combined file for {day} at hour {hour}: {e}")
+            return None
+
     def process_daily_combined_file(self, day):
 
         # Process daily video.
@@ -270,6 +308,22 @@ class BirdcamProcessor:
         result = self.cursor.fetchone()
         self.close_db()
         return result is not None
+    
+    def has_hourly_youtube_upload_run(self, date, hour):
+        """
+        Check if an hourly YouTube upload has already been processed for the given video name, date, and hour.
+        Args:
+            date (str): The date of the upload (format: YYYY-MM-DD).
+            hour (int): The hour of the upload (0-23).
+        Returns:
+            bool: True if the upload exists in the `hourly_youtube_uploads` table, False otherwise.
+        """
+        self.connect_to_db()
+        self.cursor.execute("SELECT 1 FROM hourly_youtube_uploads WHERE date = ? AND hour = ?",
+                            (date, hour))
+        result = self.cursor.fetchone()
+        self.close_db()
+        return result is not None
 
     def record_daily_run(self, run_date):
         """
@@ -319,7 +373,39 @@ class BirdcamProcessor:
         except Exception as e:
             logger.error(f"Error uploading video {video_file} to YouTube: {e}")
             return False
-        
+    
+    def process_and_upload_hourly_combined_file(self, day, hour):
+        """
+        Process and upload the hourly combined file for the given day and hour.
+        Args:
+            day (datetime.date): The date for which to process the hourly combined file.
+            hour (int): The hour of the day (0-23) for which to process the file.
+        """
+        # Check if the process has already run for yesterday
+        if self.has_hourly_youtube_upload_run(day, hour):
+            logger.info(f"Hourly combined file processing has already run for {day}.")
+        else:
+            logger.info(f"Processing hourly combined file for {day} at hour {hour}...")
+            combined_file = self.process_hourly_combined_file(day, hour)
+            if combined_file.exists():
+                # If we have a new hourly combined file, upload it to Youtube.   
+                title = f" Hour {hour}: Nesting Western Bluebirds"
+
+                # Upload the combined video to YouTube
+                check = self.upload_to_youtube_channel(
+                    combined_file, 
+                    title=title)
+                if check:
+                    # Record the hourly run in the database
+                    self.connect_to_db()
+                    self.cursor.execute("INSERT OR IGNORE INTO hourly_youtube_uploads (date, hour) VALUES (?, ?)",
+                                        (day.strftime("%Y-%m-%d"), hour))
+                    self.conn.commit()
+                    self.close_db()
+                    logger.info(f"Successfully uploaded hourly combined file for {day} at hour {hour} to YouTube.")
+                else:
+                    logger.error(f"Failed to upload hourly combined file for {day} at hour {hour}")
+
     def process_and_upload_daily_combined_file(self, day, process_hour=3, publish_hour=5):
         # Check if we are at least 6 hours into the next day.  If so, process 
         # the daily combined file.

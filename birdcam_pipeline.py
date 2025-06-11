@@ -27,7 +27,9 @@ from birdcam_pipeline_single import process_single_video
 import ffmpeg
 import time
 
-def process_videos_from_day(date, video_path, output_path, output_rate=1, confidence_threshold=0.3):
+def process_videos_from_day(date, video_path, output_path, output_rate=1, 
+                            confidence_threshold=0.3,
+                            skip_bird_detection=False):
     """
     Process all videos from a specific day.
     Args:
@@ -64,6 +66,8 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1, confid
 
     # Get all video files in the directory
     video_files = sorted(video_path.glob(f"*{date}_*.mp4"))
+    # Remove all "._" files that may have been created by macOS
+    video_files = [f for f in video_files if not f.name.startswith("._")]
     if not video_files:
         print(f"No video files found in '{video_path}'.")
         return None
@@ -71,13 +75,16 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1, confid
     # Loop over all the video files and process them
     for video_file in video_files:
         try:
-            process_single_video(video_file, output_path, output_rate=output_rate, confidence_threshold=confidence_threshold)
+            process_single_video(video_file, output_path, 
+                                 output_rate=output_rate, 
+                                 confidence_threshold=confidence_threshold,
+                                 skip_bird_detection=skip_bird_detection)
         except Exception as e:
             print(f"Error processing video file '{video_file}': {e}")
             continue
         
     # Combine all clips into a single video
-    combine_clips_ffmpeg(clips_path, combined_file_path)
+    # combine_clips_ffmpeg(clips_path, combined_file_path)
 
     return combined_file_path
 
@@ -99,12 +106,20 @@ if __name__ == "__main__":
         required=True,
         help="Path to the directory where the output will be saved."
     )
-
+    parser.add_argument(
+        "-s", "--skip_bird_detection",
+        required=False,
+        default=False,
+        action='store_true',
+        help="Skip bird detection and only annotate existing clips."
+    )
     args = parser.parse_args()
 
     # Convert input and output paths to Path objects
     input_path = Path(args.input_path)
     output_path = Path(args.output_path)
+    skip_bird_detection = args.skip_bird_detection
+    
 
     print(f"Processing videos from {args.date} in {input_path} and saving to {output_path}...")
     t1 = time.time()
@@ -113,7 +128,8 @@ if __name__ == "__main__":
         video_path=input_path,
         output_path=output_path,
         output_rate=2,
-        confidence_threshold=0.3
+        confidence_threshold=0.3,
+        skip_bird_detection=skip_bird_detection
     )
     t2 = time.time()
     print(f"Processing completed in {t2 - t1:.2f} seconds.")
