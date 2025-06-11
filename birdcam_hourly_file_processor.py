@@ -54,7 +54,7 @@ if __name__ == "__main__":
         print("No new hours to process.")
         exit(0)
 
-    processor = BirdcamProcessor(staging_dir, archive_dir)
+    processor = BirdcamProcessor(staging_dir, archive_dir, daily_run=True)
     # Process each hour from start_time to end_time
     current_time = start_time
     while current_time <= end_time:
