@@ -373,6 +373,23 @@ class BirdcamProcessor:
         except Exception as e:
             logger.error(f"Error uploading video {video_file} to YouTube: {e}")
             return False
+        
+    def convert_hour_number_to_12_hour_format(self, hour):
+        """
+        Convert a 24-hour format hour to a 12-hour format with AM/PM.
+        Args:
+            hour (int): Hour in 24-hour format (0-23).
+        Returns:
+            str: Hour in 12-hour format with AM/PM.
+        """
+        if hour == 0:
+            return "12 AM"
+        elif hour < 12:
+            return f"{hour} AM"
+        elif hour == 12:
+            return "12 PM"
+        else:
+            return f"{hour - 12} PM"
     
     def process_and_upload_hourly_combined_file(self, day, hour):
         """
@@ -388,8 +405,9 @@ class BirdcamProcessor:
             logger.info(f"Processing hourly combined file for {day} at hour {hour}...")
             combined_file = self.process_hourly_combined_file(day, hour)
             if combined_file.exists():
-                # If we have a new hourly combined file, upload it to Youtube.   
-                title = f" Hour {hour}: Nesting Western Bluebirds"
+                # If we have a new hourly combined file, upload it to Youtube.
+                am_pm_hour = self.convert_hour_number_to_12_hour_format(hour)
+                title = f" {am_pm_hour}: Nesting Western Bluebirds"
 
                 # Upload the combined video to YouTube
                 check = self.upload_to_youtube_channel(
