@@ -39,8 +39,16 @@ if __name__ == "__main__":
         start_hour = last_processed_hour + 1
     start_time = dt(start_date.year, start_date.month, start_date.day, start_hour, 0, 0)
 
-    # Process up to 3 hours ago
-    now = dt.now()
+    # Get the last annotated video date and hour
+    # /bird_archive/processed/20250611/annotated_clips/
+    last_annotated_file = sorted(processed_dir.glob("202*/annotated_clips/*.mp4"))
+    last_annotated_file = [f for f in last_annotated_file if not f.name.startswith("._")][-1]
+    last_annotated_date = dt.strptime(last_annotated_file.stem.split("_")[0], "%Y%m%d").date()
+    last_annotated_hour = int(last_annotated_file.stem.split("_")[-1])
+    now = dt(last_annotated_date.year, last_annotated_date.month, 
+                  last_annotated_date.day, last_annotated_hour, 0, 0)
+
+    # Process up to 3 hours prior to the last annotated file time
     if now.hour >= 3:
         end_date = now.date()
         end_hour = now.hour - 3
