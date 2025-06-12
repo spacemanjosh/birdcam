@@ -43,8 +43,8 @@ if __name__ == "__main__":
     # /bird_archive/processed/20250611/annotated_clips/
     last_annotated_file = sorted(processed_dir.glob("202*/annotated_clips/*.mp4"))
     last_annotated_file = [f for f in last_annotated_file if not f.name.startswith("._")][-1]
-    last_annotated_date = dt.strptime(last_annotated_file.stem.split("_")[0], "%Y%m%d").date()
-    last_annotated_hour = int(last_annotated_file.stem.split("_")[-1])
+    last_annotated_date = dt.strptime(last_annotated_file.stem.split("_")[1], "%Y%m%d").date()
+    last_annotated_hour = int(last_annotated_file.stem.split("_")[2][0:2])
     now = dt(last_annotated_date.year, last_annotated_date.month, 
                   last_annotated_date.day, last_annotated_hour, 0, 0)
 
