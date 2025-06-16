@@ -409,10 +409,19 @@ class BirdcamProcessor:
                 am_pm_hour = self.convert_hour_number_to_12_hour_format(hour)
                 title = f" {am_pm_hour}: Nesting Western Bluebirds"
 
+                # Between the hours of 6am and 6pm, set publish_at to 6pm
+                current_hour = dt.now().hour
+                if 6 <= current_hour < 18:
+                    publish_at = str(dt.combine(dt.now(), dt.strptime("18:00:00", "%H:%M:%S").time()))
+                else:
+                    publish_at = None
+
                 # Upload the combined video to YouTube
                 check = self.upload_to_youtube_channel(
                     combined_file, 
-                    title=title)
+                    title=title,
+                    publish_at=publish_at)
+                
                 if check:
                     # Record the hourly run in the database
                     self.connect_to_db()
@@ -423,6 +432,7 @@ class BirdcamProcessor:
                     logger.info(f"Successfully uploaded hourly combined file for {day} at hour {hour} to YouTube.")
                 else:
                     logger.error(f"Failed to upload hourly combined file for {day} at hour {hour}")
+                    
 
     def process_and_upload_daily_combined_file(self, day, process_hour=3, publish_hour=5):
         # Check if we are at least 6 hours into the next day.  If so, process 
@@ -453,9 +463,10 @@ class BirdcamProcessor:
 
                         # Upload the combined video to YouTube
                         # TODO: Catch when this fails and log it
-                        check = self.upload_to_youtube_channel(combined_file, 
-                                                            title=title,
-                                                            publish_at=publish_at)
+                        check = self.upload_to_youtube_channel(
+                            combined_file, 
+                            title=title,
+                            publish_at=publish_at)
                         if check:
                             logger.info(f"Successfully uploaded daily combined file for {day} to YouTube.")
                         
