@@ -354,6 +354,10 @@ class BirdcamProcessor:
                 publish_at = None
                 privacy_status = "public"
 
+            # Temporarily set videos to private...
+            privacy_status = "private"
+            publish_at = None
+
             upload_video_wrapper(
                 str(video_file), 
                 title=title,
