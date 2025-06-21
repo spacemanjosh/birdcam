@@ -410,8 +410,10 @@ class BirdcamProcessor:
                 title = f" {am_pm_hour}: Nesting Western Bluebirds"
 
                 # Between the hours of 6am and 6pm, set publish_at to 6pm
+                # But only during weekdays (Monday to Friday)
                 current_hour = dt.now().hour
-                if 6 <= current_hour < 18:
+                current_weekday = dt.now().weekday()  # 0=Monday, 6=Sunday
+                if current_weekday < 5 and 6 <= current_hour < 18:
                     publish_at = str(dt.combine(dt.now(), dt.strptime("18:00:00", "%H:%M:%S").time()))
                 else:
                     publish_at = None
