@@ -84,7 +84,7 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1,
             continue
         
     # Combine all clips into a single video
-    # combine_clips_ffmpeg(clips_path, combined_file_path)
+    combine_clips_ffmpeg(clips_path, [combined_file_path])
 
     return combined_file_path
 
