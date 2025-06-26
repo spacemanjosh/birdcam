@@ -38,11 +38,12 @@ class BirdcamProcessor:
 
     def __init__(self, staging_dir=None, archive_dir=None, daily_run=False):
         # Directory where the videos are staged
-        self.staging_dir = Path(staging_dir) / "staging"
+        staging_dir = Path(staging_dir)
+        self.staging_dir = staging_dir / "staging"
         self.staging_dir.mkdir(parents=True, exist_ok=True)
 
         # Directory where the processed videos will be saved
-        self.processed_dir = Path(staging_dir) / "processed"
+        self.processed_dir = staging_dir / "processed"
         self.processed_dir.mkdir(parents=True, exist_ok=True)
 
         # Directory where the processed videos will be archived
@@ -97,6 +98,15 @@ class BirdcamProcessor:
                 hour INTEGER
             )
         """)
+        # Create a simple table to track the publish delay time
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS publish_delay (
+                id INTEGER PRIMARY KEY,
+                delay_time INTEGER
+            )
+        """)
+        self.cursor.execute("INSERT INTO publish_delay (id, delay_time) VALUES (1, 0) ON CONFLICT(id) DO UPDATE SET delay_time = 0")
+
         self.conn.commit()
         self.close_db()
 
@@ -414,9 +424,32 @@ class BirdcamProcessor:
                 current_hour = dt.now().hour
                 current_weekday = dt.now().weekday()  # 0=Monday, 6=Sunday
                 if current_weekday < 5 and 6 <= current_hour < 18:
-                    publish_at = str(dt.combine(dt.now(), dt.strptime("18:00:00", "%H:%M:%S").time()))
+                    # If we publish multiple videos at 6pm, we want to stagger them
+                    # by 1 minute each, so they aren't displayed out of order.
+                    publish_at = dt.combine(dt.now(), dt.strptime("18:00:00", "%H:%M:%S").time())
+                    
+                    # Get the publish delay time from the database
+                    self.connect_to_db()
+                    self.cursor.execute("SELECT delay_time FROM publish_delay WHERE id = 1")
+                    delay_time = self.cursor.fetchone()[0]
+                    self.close_db()
+                    
+                    publish_at += td(minutes=delay_time)
+
+                    # Update the delay time in the database for the next video
+                    self.connect_to_db()
+                    self.cursor.execute("UPDATE publish_delay SET delay_time = ? WHERE id = 1", (delay_time + 1,))
+                    self.conn.commit()
+                    self.close_db()
+
+                    publish_at = str(publish_at)
                 else:
                     publish_at = None
+                    # Set the delay time to 0 in the database
+                    self.connect_to_db()
+                    self.cursor.execute("UPDATE publish_delay SET delay_time = 0 WHERE id = 1")
+                    self.conn.commit()
+                    self.close_db()
 
                 # Upload the combined video to YouTube
                 check = self.upload_to_youtube_channel(
