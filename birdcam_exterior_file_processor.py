@@ -39,7 +39,9 @@ if __name__ == "__main__":
     combined_file = process_videos_from_day(
         date=args.date,
         video_path=input_path,
-        output_path=output_path
+        output_path=output_path,
+        min_hour=5,
+        max_hour=21
     )
     if combined_file:
         print(f"Combined video saved to: {combined_file}")
