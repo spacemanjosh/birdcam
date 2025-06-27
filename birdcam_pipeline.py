@@ -29,7 +29,9 @@ import time
 
 def process_videos_from_day(date, video_path, output_path, output_rate=1, 
                             confidence_threshold=0.3,
-                            skip_bird_detection=False):
+                            skip_bird_detection=False,
+                            min_hour=0, 
+                            max_hour=23):
     """
     Process all videos from a specific day.
     Args:
@@ -38,6 +40,9 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1,
         output_path (Path): Path to the directory where the output will be saved.
         output_rate (int): Sampling rate for frames (1 frame every n seconds).
         confidence_threshold (float): Confidence threshold for bird detection.
+        skip_bird_detection (bool): If True, skip bird detection and only annotate existing clips.
+        min_hour (int): Minimum hour to process (default is 0).
+        max_hour (int): Maximum hour to process (default is 23).
     """
 
     # Set up paths
@@ -68,6 +73,13 @@ def process_videos_from_day(date, video_path, output_path, output_rate=1,
     video_files = sorted(video_path.glob(f"*{date}_*.mp4"))
     # Remove all "._" files that may have been created by macOS
     video_files = [f for f in video_files if not f.name.startswith("._")]
+
+    # Filter video files by hour if min_hour and max_hour are specified
+    video_files = [
+        f for f in video_files 
+        if min_hour <= int(f.stem.split('_')[-1][:2]) <= max_hour
+    ]
+
     if not video_files:
         print(f"No video files found in '{video_path}'.")
         return None
