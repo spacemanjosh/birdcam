@@ -55,12 +55,21 @@ Bird species identified by audio using the Cornell Lab of Ornithology's Merlin B
 
 Note: I'm using the NoIR version of the camera, which means there is no infra-red filter present.  This means that the camera is also picking up IR light in addition to visible light.  So the color balance looks a bit off.
 """
+        current_hour = dt.now().hour
+        current_weekday = dt.now().weekday()  # 0=Monday, 6=Sunday
+        if current_weekday < 5 and 5 <= current_hour < 18:
+            publish_at = str(dt.combine(dt.now(), dt.strptime("18:00:00", "%H:%M:%S").time()))
+            privacy_status = "private"
+        else:
+            publish_at = None
+            privacy_status = "public"
 
         upload_video_wrapper(
             combined_file,
             title=": Nesting Western Bluebirds Exterior Clips",
             description=description,
-            privacy_status="public",
+            privacy_status=privacy_status,
+            publish_at=publish_at,
             playlist_name="Hacked Birdhouse Exterior Shots"
         )
 
