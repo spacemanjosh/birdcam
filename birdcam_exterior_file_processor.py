@@ -7,7 +7,7 @@ from pathlib import Path
 import argparse
 from datetime import datetime as dt, timedelta as td, date
 from birdcam_pipeline import process_videos_from_day
-from upload_to_youtube import upload_video_wrapper
+from upload_to_youtube import upload_video_wrapper, convert_to_utc
 import time
 
 if __name__ == "__main__":
@@ -59,6 +59,7 @@ Note: I'm using the NoIR version of the camera, which means there is no infra-re
         current_weekday = dt.now().weekday()  # 0=Monday, 6=Sunday
         if current_weekday < 5 and 5 <= current_hour < 18:
             publish_at = str(dt.combine(dt.now(), dt.strptime("18:00:00", "%H:%M:%S").time()))
+            publish_at = convert_to_utc(publish_at, "America/Los_Angeles")
             privacy_status = "private"
         else:
             publish_at = None
