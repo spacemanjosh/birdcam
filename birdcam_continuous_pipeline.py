@@ -105,8 +105,6 @@ class BirdcamProcessor:
                 delay_time INTEGER
             )
         """)
-        self.cursor.execute("INSERT INTO publish_delay (id, delay_time) VALUES (1, 0) ON CONFLICT(id) DO UPDATE SET delay_time = 0")
-
         self.conn.commit()
         self.close_db()
 
@@ -431,10 +429,16 @@ class BirdcamProcessor:
                     # Get the publish delay time from the database
                     self.connect_to_db()
                     self.cursor.execute("SELECT delay_time FROM publish_delay WHERE id = 1")
-                    delay_time = self.cursor.fetchone()[0]
+                    if self.cursor.fetchone() is None:
+                        # If the delay_time is not set, initialize it to 0
+                        self.cursor.execute("INSERT INTO publish_delay (id, delay_time) VALUES (1, 0) ON CONFLICT(id) DO UPDATE SET delay_time = 0")
+                        self.conn.commit()
+                        delay_time = 0
+                    else:
+                        delay_time = self.cursor.fetchone()[0]
                     self.close_db()
                     
-                    publish_at += td(minutes=delay_time)
+                    publish_at += td(seconds=delay_time)
 
                     # Update the delay time in the database for the next video
                     self.connect_to_db()
