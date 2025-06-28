@@ -40,7 +40,8 @@ if __name__ == "__main__":
         date=args.date,
         video_path=input_path,
         output_path=output_path,
-        min_hour=5,
+        output_rate=2,
+        min_hour=4,
         max_hour=21
     )
     if combined_file:
