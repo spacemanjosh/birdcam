@@ -7,9 +7,12 @@
 *.service
 clips
 *.txt
+*.bak
 upload_to_youtube.py
 youtube_pipeline.py
 test.py
 birdcam_mailer.txt
 bird_notifier.py
 birdcam_emailer.py
+birdcam_quicklook_email.py
+safe_reboot.bash

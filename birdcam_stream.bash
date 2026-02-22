@@ -5,7 +5,6 @@
 # -o <output> : Specify the output file name. If absent, defaults to streaming to YouTube.
 # -t <duration> : Specify the duration of the stream in seconds. If absent, defaults to 0 (no limit).
 # -a : Use the default audio device. If absent, defaults to a silent stream.
-#
 
 # Default values
 output_type="file"
@@ -93,6 +92,7 @@ if [ "$use_audio_device" = false ]; then
 else
     # All other cases. This can be either an mp4 with audio or a YouTube stream with audio.
     rpicam-vid -t $duration --nopreview --width 1920 --height 1080 --framerate 30 -b 8000kbps \
+        --autofocus-window 0.41,0.30,0.22,0.39 \
         --denoise cdn_off --codec libav --libav-audio \
         --libav-format $libav_format \
         --audio-source alsa \

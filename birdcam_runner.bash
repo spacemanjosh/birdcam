@@ -41,13 +41,29 @@ log() {
 
 log "===== Starting script ====="
 
+# Check CPU temp and cool down if needed.
+# THRESHOLD=80.0
+# while true; do
+#     temp=$(vcgencmd measure_temp | grep -oP '[0-9]+\.[0-9]+')
+#     log "Current temp: $temp°C"
+
+#     # Use awk to compare floating point numbers
+#     if awk "BEGIN {exit !($temp > $THRESHOLD)}"; then
+#         log "🔥 CPU temperature too high ($temp°C). Sleeping for 10s..."
+#         sleep 10
+#     else
+#         log "✅ Temperature OK. Continuing..."
+#         break
+#     fi
+# done
+
 # Before we get started, rsync the recordings directory
 # back to the main server.  This may be necessary if there were
 # a network problem that prevented the rsync in the loop below.
 log "Sleep for 10 seconds to allow system to stabilize."
 sleep 10
 log "Starting rsync..."
-rsync -av "$output_dir"/*.mp4 homebase:/bird_dropbox/
+rsync -av "$output_dir"/*.{mp4,jpg} birdnode1:/bird_dropbox/
 log "Finished rsync."
 
 # Main loop to make half-hourly recordings
@@ -74,13 +90,14 @@ sleep 10
 output_file=$(create_filename)
 
 log "Taking a still image."
-rpicam-still --raw --output "${output_file%.mp4}.jpg"
+rpicam-still -n --shutter 10000 --autofocus-window 0.41,0.30,0.22,0.39 --output "${output_file%.mp4}.jpg"
 if [ $? -ne 0 ]; then
     log "Failed to capture still image."
 else
     log "Still image captured: ${output_file%.mp4}.jpg"
 fi
 
+output_file=$(create_filename)
 log "Starting recording: $output_file"
 $script_dir/birdcam_stream.bash -o "$output_file" -t 600 -a
 if [ $? -ne 0 ]; then
