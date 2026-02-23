@@ -33,6 +33,17 @@ create_filename() {
   echo "$output_dir/birdcam_$timestamp.mp4"
 }
 
+in_time_window() {
+    now=$(date +%H:%M)
+
+    # Simple string comparison works because format is HH:MM
+    if [[ "$now" > "$START_TIME" && "$now" < "$STOP_TIME" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 logfile="$script_dir/birdcam_stream_debug.log"
 
 log() {
@@ -83,6 +94,18 @@ while true; do
     break
   fi
 done
+
+START_TIME="05:00"
+STOP_TIME="20:00"
+SLEEP_NIGHT=300   # sleep 5 min when outside window
+
+if in_time_window; then
+    log "In time window. Starting recording..."
+else
+    log "Outside time window. Sleeping for $SLEEP_NIGHT seconds..."
+    sleep $SLEEP_NIGHT
+    exit 0
+fi
 
 log "Sleep for 10 seconds before starting recording."
 sleep 10
