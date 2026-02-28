@@ -29,7 +29,7 @@ mkdir -p "$OUTBOX" "$HOLD"
 [[ "$DEST" != */ ]] && DEST="${DEST}/"
 
 # Prevent overlapping runs
-LOCK="${XDG_RUNTIME_DIR}/birdcam_rsync.lock"
+LOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/birdcam_rsync.lock"
 exec 9>"$LOCK"
 flock -n 9 || exit 0
 

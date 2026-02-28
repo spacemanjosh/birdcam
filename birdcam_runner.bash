@@ -78,9 +78,16 @@ $script_dir/birdcam_rsync.bash \
     birdnode1 \
     /bird_dropbox/ \
     "$output_dir" \
-    "$script_dir/sent"
+    "$script_dir/sent" \
+    > >(while IFS= read -r line; do log "[rsync][stdout] $line"; done) \
+    2> >(while IFS= read -r line; do log "[rsync][stderr] $line"; done)
+rsync_status=$?
 
-log "Finished rsync."
+if [ $rsync_status -ne 0 ]; then
+  log "Rsync failed with exit code: $rsync_status"
+else
+  log "Finished rsync successfully."
+fi
 
 # Main loop to make half-hourly recordings
 log "Entering disk space check loop..."
