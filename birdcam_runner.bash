@@ -5,11 +5,12 @@ script_dir=$(dirname "$0")
 
 # Directory to save recordings
 output_dir="$script_dir/recordings"
+hold_dir="$script_dir/sent"
 max_usage=50
 
 # Function to check disk usage
 check_disk_usage() {
-  local usage=$(df -h "$output_dir" | awk 'NR==2 {print $5}' | sed 's/%//')
+  local usage=$(df -h "$hold_dir" | awk 'NR==2 {print $5}' | sed 's/%//')
   if [ "$usage" -ge $max_usage ]; then
     echo "Disk usage has exceeded $max_usage%. Overwriting the oldest file."
     delete_oldest_file
@@ -20,7 +21,7 @@ check_disk_usage() {
 
 # Function to delete the oldest file
 delete_oldest_file() {
-  local oldest_file=$(find "$output_dir" -type f -printf '%T+ %p\n' | sort | head -n 1 | awk '{print $2}')
+  local oldest_file=$(find "$hold_dir" -type f -printf '%T+ %p\n' | sort | head -n 1 | awk '{print $2}')
   if [ -n "$oldest_file" ]; then
     rm "$oldest_file"
     echo "Deleted oldest file: $oldest_file"
@@ -78,7 +79,7 @@ $script_dir/birdcam_rsync.bash \
     birdnode1 \
     /bird_dropbox/ \
     "$output_dir" \
-    "$script_dir/sent" \
+    "$hold_dir" \
     > >(while IFS= read -r line; do log "[rsync][stdout] $line"; done) \
     2> >(while IFS= read -r line; do log "[rsync][stderr] $line"; done)
 rsync_status=$?
