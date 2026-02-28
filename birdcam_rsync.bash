@@ -57,8 +57,6 @@ is_stable() {
 ############################################
 RSYNC_OPTS=(
   -av
-  --partial
-  --inplace
   --protect-args
   --timeout=30
 )
