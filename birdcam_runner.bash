@@ -74,7 +74,12 @@ log "===== Starting script ====="
 log "Sleep for 10 seconds to allow system to stabilize."
 sleep 10
 log "Starting rsync..."
-rsync -av "$output_dir"/*.{mp4,jpg} birdnode1:/bird_dropbox/
+$script_dir/birdcam_rsync.bash \
+    birdnode1 \
+    /bird_dropbox/ \
+    "$output_dir" \
+    "$script_dir/sent"
+
 log "Finished rsync."
 
 # Main loop to make half-hourly recordings
@@ -113,7 +118,7 @@ sleep 10
 output_file=$(create_filename)
 
 log "Taking a still image."
-rpicam-still -n --shutter 10000 --autofocus-window 0.41,0.30,0.22,0.39 --output "${output_file%.mp4}.jpg"
+rpicam-still -n --autofocus-window 0.41,0.30,0.22,0.39 --output "${output_file%.mp4}.jpg"
 if [ $? -ne 0 ]; then
     log "Failed to capture still image."
 else
