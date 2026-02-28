@@ -61,7 +61,6 @@ RSYNC_OPTS=(
   --inplace
   --protect-args
   --timeout=30
-  --contimeout=10
 )
 
 ############################################
