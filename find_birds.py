@@ -108,7 +108,7 @@ def detect_false_positives(box):
 
     return False # No false positives detected
 
-def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="yolov5s", confidence_threshold=0.3):
+def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="yolov5m", confidence_threshold=0.3):
     """
     Detect birds in frames using a pre-trained YOLOv5 model.
     Args:
@@ -372,7 +372,7 @@ def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"],
 #     # Close the combined video
 #     combined.close()
 
-def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate=1, model_name="yolov5s", confidence_threshold=0.3, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
+def find_birds_and_save_clips(video_path, output_path=Path("clips"), output_rate=1, model_name="yolov5m", confidence_threshold=0.3, pre_buffer=10.0, post_buffer=10.0, min_gap=10.0):
     """
     Main function to find birds in a video and save clips.
     Args:
@@ -426,15 +426,34 @@ if __name__ == "__main__":
         required=True,
         help="Path to the the output file."
     )
+    parser.add_argument(
+        "-m", "--model",
+        default="yolov5m",
+        choices=["yolov5n", "yolov5s", "yolov5m", "yolov5l", "yolov5x"],
+        help="YOLOv5 model variant to use for detection."
+    )
+    parser.add_argument(
+        "-c", "--confidence",
+        type=float,
+        default=0.3,
+        help="Minimum confidence threshold for detections (0.0-1.0)."
+    )
     args = parser.parse_args()
 
     # Convert input and output paths to Path objects
     input_file = Path(args.input_file)
     output_file = Path(args.output_file)
     output_path = output_file.parent
+    model_name = args.model
+    confidence_threshold = args.confidence
 
     # Find those birds!
-    find_birds_and_save_clips(input_file, output_path=output_path)
+    find_birds_and_save_clips(
+        input_file,
+        output_path=output_path,
+        model_name=model_name,
+        confidence_threshold=confidence_threshold,
+    )
 
     # Combine bird clips into a single video
     combine_clips_ffmpeg(output_path, output_file)
