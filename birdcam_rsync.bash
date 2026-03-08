@@ -68,7 +68,7 @@ RSYNC_OPTS=(
 mapfile -d '' FILES < <(
   find "$OUTBOX" -maxdepth 1 -type f \
     \( -iname '*.mp4' -o -iname '*.jpg' \) \
-    -print0
+    -print0 | sort -z -V
 )
 
 for f in "${FILES[@]}"; do
