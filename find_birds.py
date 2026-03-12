@@ -270,18 +270,31 @@ def group_and_save_clips(video_path, output_path, df_timestamps, pre_buffer=10.0
 
     clip.close()
 
-def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"], 
+def combine_clips_ffmpeg(clips_dir, output_files=None,
                          hour=None,
                          trim_start=0.04):
     """
     Combine individual video clips into a single video file using ffmpeg-python.
     Args:
         clips_dir (str or Path): Directory containing the individual video clips.
-        output_file (str): Path to the output combined video file.
+        output_files (str | Path | list[str | Path]): Output file path(s). If two
+            files are provided and hour is None, clips will be split into AM/PM.
         hour (int, optional): If provided, will split clips into hourly files.
         trim_start (float): Time in seconds to trim from the start of the first clip.
     """
     clips_dir = Path(clips_dir)
+
+    if output_files is None:
+        output_files = ["combined_bird_clips.mp4"]
+    elif isinstance(output_files, (str, Path)):
+        output_files = [output_files]
+    elif not isinstance(output_files, (list, tuple)):
+        # Best-effort: accept any iterable of paths.
+        try:
+            output_files = list(output_files)
+        except TypeError:
+            output_files = [output_files]
+
     if not clips_dir.exists() or not clips_dir.is_dir():
         print(f"Error: Directory '{clips_dir}' does not exist or is not a directory.")
         return
@@ -297,7 +310,7 @@ def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"],
     
     # If we have two output files, break the clips into AM and PM clips
     if hour is None:
-        if isinstance(output_files, list) and len(output_files) == 2:
+        if len(output_files) == 2:
             am_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) <= 12]
             pm_clips = [f for f in all_clip_files if int(f.name.split('_')[2][0:2]) > 12]
             all_clip_files = [am_clips, pm_clips]
@@ -310,6 +323,11 @@ def combine_clips_ffmpeg(clips_dir, output_files=["combined_bird_clips.mp4"],
             print(f"No video clips found for hour {hour} in '{clips_dir}'.")
             return
         all_clip_files = [all_clip_files]
+
+    if len(output_files) != len(all_clip_files):
+        raise ValueError(
+            f"Expected {len(all_clip_files)} output file(s) for this run, got {len(output_files)}: {output_files}"
+        )
 
     for output_file, clip_files in zip(output_files, all_clip_files):
         output_file = Path(output_file)
