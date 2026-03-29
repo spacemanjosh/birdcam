@@ -1,7 +1,6 @@
 name: birdcam
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - python=3.12
   - pip
@@ -13,9 +12,13 @@ dependencies:
   - opencv
   - moviepy
   - watchdog
-  - google-api-python-client 
+  - google-api-python-client
   - google-auth
   - google-auth-oauthlib
   - google-auth-httplib2
   - seaborn
-  
+  - dask=2025.10.0
+  - distributed=2025.10.0
+  - matplotlib
+  - h5py
+  - bokeh
