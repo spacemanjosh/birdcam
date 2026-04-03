@@ -19,8 +19,16 @@ from moviepy.editor import VideoFileClip, concatenate_videoclips
 from pathlib import Path
 import ffmpeg
 
-debug = False
-debug_all_objects = False
+_MODEL_CACHE = {}
+
+
+def load_yolo_model(model_name="yolov5n"):
+    """
+    Load and cache a YOLOv5 model instance for reuse.
+    """
+    if model_name not in _MODEL_CACHE:
+        _MODEL_CACHE[model_name] = torch.hub.load("ultralytics/yolov5", model_name, pretrained=True)
+    return _MODEL_CACHE[model_name]
 
 def extract_frames(video_path, output_rate=1):
     """
@@ -108,19 +116,85 @@ def detect_false_positives(box):
 
     return False # No false positives detected
 
-def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="yolov5m", confidence_threshold=0.3):
+
+def video_has_bird(
+    video_path,
+    output_rate=2,
+    model_name="yolov5n",
+    confidence_threshold=0.35,
+    labels_to_treat_as_bird=None,
+    inference_size=448,
+):
+    """
+    Quickly scan a video and return True if any likely bird is detected.
+
+    This is optimized for speed over recall/precision compared to full processing:
+    - sparse frame sampling via output_rate,
+    - lightweight model default (yolov5n),
+    - early return on first valid detection,
+    - no timestamp DataFrame construction.
+
+    Args:
+        video_path (Path | str): Input video path.
+        output_rate (int): Seconds between sampled frames (2 = one frame every 2s).
+        model_name (str): YOLOv5 variant, defaults to yolov5n for speed.
+        confidence_threshold (float): Minimum confidence for positive match.
+        labels_to_treat_as_bird (set[str] | list[str] | None): Labels counted as bird-like.
+        inference_size (int): Inference image size sent to YOLO.
+
+    Returns:
+        bool: True if a valid bird-like detection occurs in any sampled frame.
+    """
+    if labels_to_treat_as_bird is None:
+        labels_to_treat_as_bird = {"bird", "cat", "dog", "person"}
+
+    model = load_yolo_model(model_name)
+
+    for frame, _timestamp in extract_frames(video_path, output_rate=output_rate):
+        results = model(frame, size=inference_size)
+        detections = results.xyxy[0]
+        if detections is None or len(detections) == 0:
+            continue
+
+        for det in detections:
+            confidence = float(det[4].item())
+            if confidence < confidence_threshold:
+                continue
+
+            class_idx = int(det[5].item())
+            name = model.names[class_idx]
+            if name not in labels_to_treat_as_bird:
+                continue
+
+            box = [float(det[0].item()), float(det[1].item()), float(det[2].item()), float(det[3].item())]
+            if detect_false_positives(box):
+                continue
+
+            return True
+
+    return False
+
+def detect_birds(video_path, output_path=Path("."), output_rate=1, model_name="yolov5m", confidence_threshold=0.3, debug=False, debug_all_objects=False):
     """
     Detect birds in frames using a pre-trained YOLOv5 model.
     Args:
         video_path (Path): Path to the input video file.
         output_rate (int): Rate at which to extract frames.
         model_name (str): Name of the YOLOv5 model to use (e.g., 'yolov5s', 'yolov5m', etc.).
+        device (torch.device): Device to run the model on.
         confidence_threshold (float): Minimum confidence score for detections.
+        debug (bool): Whether to enable debug output.
+        debug_all_objects (bool): Whether to debug all detected objects.
     Returns:
         bird_times (list): List of timestamps where birds were detected.
     """
     # Load the YOLOv5 model
-    model = torch.hub.load("ultralytics/yolov5", model_name, pretrained=True)
+    model = load_yolo_model(model_name)
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    print("Using device:", device)
+    if device is not None:
+        model.to(device)
+
     columns = ["Bird Detected At (s)", "Confidence", "name", "xmin", "ymin", "xmax", "ymax"]
     bird_times = pd.DataFrame(columns=columns)
     not_bird_times = pd.DataFrame(columns=columns)
@@ -441,7 +515,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-o", "--output_file",
-        required=True,
+        required=False,
         help="Path to the the output file."
     )
     parser.add_argument(
@@ -456,14 +530,39 @@ if __name__ == "__main__":
         default=0.3,
         help="Minimum confidence threshold for detections (0.0-1.0)."
     )
+    parser.add_argument(
+        "--presence-only",
+        action="store_true",
+        help="Quick scan mode: print True/False if a bird-like object is detected anywhere in the video."
+    )
+    parser.add_argument(
+        "--scan-rate",
+        type=int,
+        default=2,
+        help="Presence-only mode: sample one frame every N seconds (default: 2)."
+    )
     args = parser.parse_args()
 
     # Convert input and output paths to Path objects
     input_file = Path(args.input_file)
-    output_file = Path(args.output_file)
-    output_path = output_file.parent
     model_name = args.model
     confidence_threshold = args.confidence
+
+    if args.presence_only:
+        has_bird = video_has_bird(
+            input_file,
+            output_rate=args.scan_rate,
+            model_name=model_name,
+            confidence_threshold=confidence_threshold,
+        )
+        print(has_bird)
+        raise SystemExit(0)
+
+    if not args.output_file:
+        parser.error("--output_file is required unless --presence-only is used.")
+
+    output_file = Path(args.output_file)
+    output_path = output_file.parent
 
     # Find those birds!
     find_birds_and_save_clips(
