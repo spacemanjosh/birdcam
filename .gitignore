@@ -18,3 +18,4 @@ birdcam_quicklook_email.py
 safe_reboot.bash
 test_stage
 hummingbirdcam_hourly_file_processor.py
+publish_youtube_short.py
